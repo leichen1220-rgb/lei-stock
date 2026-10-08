@@ -750,7 +750,7 @@ $('excelFile').addEventListener('change',async e=>{
    if(blockers.length||importPlan.blockers.length){status.textContent='仍有預檢阻擋項目，禁止暫存。';return;}
    if(!user||!cloudDataReady){status.textContent='請先登入並完成雲端同步';return;}
    if(!importPlan.source_sha256||!importPlan.payload_sha256||
-      importPlan.rows.length===0||importPlan.rows.length!==valid.length){
+      importPlan.rows.length===0||importPlan.rows.length!==convertedTrades.length){
     status.textContent='匯入資料或雜湊不完整，禁止暫存';return;
    }
    if(!window.confirm('確定將 '+importPlan.rows.length+' 筆已成交交易送入隔離暫存區？\\n不會寫入正式股票帳本。')){
