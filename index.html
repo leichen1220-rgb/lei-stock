@@ -599,7 +599,7 @@ $('excelFile').addEventListener('change',async e=>{
    '<p class="danger"><strong>未分類來源列：</strong>'+unaccounted.map(x=>'Excel 第 '+x.position+' 列').join('、')+
    '。這些列尚未被判定為成交、等待、退款或試算區，禁止匯入。</p>':'';
   const conversionDetail=conversionErrors.length?
-   '<p class="danger"><strong>轉換失敗來源列：</strong>'+conversionErrors.map(x=>'Excel 第 '+x.excel_row+' 列').join('、')+
+   '<p class="danger"><strong>轉換失敗來源列：</strong>'+conversionErrors.map(x=>'Excel 第 '+x.position+' 列（'+x.errors.join('、')+'）').join('、')+
    '。請核對日期、股數、價格、費用與股息欄位。</p>':'';
   const importPlan={
    schema_version:1,source_file:file.name,generated_at:new Date().toISOString(),
