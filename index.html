@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.8.9 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.9.0 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -80,6 +80,7 @@ async function fetchAll(table,sortColumns=[]){
 async function load(){
  const account=user?.id;if(!account)return;
  cloudDataReady=false;backupAvailability();
+ [trades,tickers,banks,prices]=[[],[],[],[]];render();
  try{
  const [newTrades,newTickers,newBanks,newPrices]=await Promise.all([
  fetchAll('stock_transactions',[['trade_date',true],['sequence_no',true],['id',true]]),
@@ -89,7 +90,7 @@ async function load(){
  [trades,tickers,banks,prices]=[newTrades,newTickers,newBanks,newPrices];
  cloudDataReady=true;backupAvailability();
  render();msg('已同步雲端資料：'+trades.length+' 筆交易');
- }catch(e){msg('讀取失敗，請勿使用目前資料製作備份：'+e.message,true)}
+ }catch(e){[trades,tickers,banks,prices]=[[],[],[],[]];render();msg('讀取失敗，已清除畫面上的舊資料，請勿使用目前資料製作備份：'+e.message,true)}
 }
 async function login(signup){if(!client)return msg('Supabase 函式庫載入失敗，請確認網路',true);try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=signup?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});if(error)throw error;if(data?.session?.user){user=data.session.user;authUI();await load();msg('登入成功，已進入股票帳本');}else if(signup){msg('註冊完成；若需要驗證，請先查看信箱');}else{msg('尚未取得有效登入狀態，請重新登入',true);}}catch(e){msg(e.message,true)}}
 $('signin').onclick=()=>login(false);$('signup').onclick=()=>login(true);$('logout').onclick=()=>client.auth.signOut();
