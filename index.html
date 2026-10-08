@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.13.3 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.13.4 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -555,6 +555,23 @@ $('excelFile').addEventListener('change',async e=>{
   for(const item of waitingRows)flag(item.position,'等待：尚未成交，另行保存');
   for(const item of refundRows)flag(item.position,'增資退款：資金異動，另行保存');
   const reviewRows=[...reviewByRow].sort((a,b)=>a[0]-b[0]);
+  // Every populated source row must be accounted for exactly once. Footer
+  // calculations are explicitly excluded, never silently discarded.
+  const importDisposition=[
+   ...valid.map(x=>({excel_row:x.position,kind:'成交候選'})),
+   ...waitingRows.map(x=>({excel_row:x.position,kind:'等待計畫'})),
+   ...refundRows.map(x=>({excel_row:x.position,kind:'增資退款'})),
+   ...missingCodeRows.map(x=>({excel_row:x.position,kind:'缺少代號'})),
+   ...needsReview.map(x=>({excel_row:x.position,kind:'未辨識交易'})),
+   ...footerRows.map(x=>({excel_row:x.position,kind:'非交易計算列'}))
+  ].sort((a,b)=>a.excel_row-b.excel_row);
+  const sourceRows=candidateRows.filter(({row})=>row.some(c=>String(c??'').trim()!==''));
+  const accounted=new Set(importDisposition.map(x=>x.excel_row));
+  const unaccounted=sourceRows.filter(x=>!accounted.has(x.excelRow));
+  const duplicates=importDisposition.length-accounted.size;
+  if(unaccounted.length||duplicates||accounted.size!==sourceRows.length){
+   blockers.push('來源資料列核對失敗：未分類 '+unaccounted.length+' 列、重複分類 '+duplicates+' 列；禁止正式匯入');
+  }
   // A deterministic import plan: no database writes and no silent omissions.
   // excel_row is audit metadata, not a stock_transactions column.
   const importPlan={
@@ -563,6 +580,9 @@ $('excelFile').addEventListener('change',async e=>{
    expected:{recognized:valid.length,converted:convertedTrades.length,
     pending:waitingRows.length,refunds:refundRows.length,unconverted:conversionErrors.length},
    blockers:[...blockers],
+   source_row_count:sourceRows.length,
+   disposition:importDisposition,
+   unaccounted_rows:unaccounted.map(x=>x.excelRow),
    rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))
   };
   // Hash exactly the original workbook bytes and the staged row payload.
@@ -577,6 +597,7 @@ $('excelFile').addEventListener('change',async e=>{
   importPlan.blockers=[...blockers];
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
+   '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
    '<p class="muted">原始檔 SHA-256：'+(importPlan.source_sha256||'無法計算')+'；交易資料 SHA-256：'+(importPlan.payload_sha256||'無法計算')+'</p>'+
    '<p><button type="button" id="exportImportPlan">下載匯入計畫（JSON）</button></p>'+
    '<p class="muted">僅供核對：目前不執行資料庫寫入，也不會把等待、退款或未轉換資料當作已成交交易。未來正式寫入須採單次原子交易，失敗時整批回滾。</p></section>';
