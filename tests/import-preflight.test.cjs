@@ -1,0 +1,23 @@
+// Read-only Excel duplicate-key preflight regression tests.
+// Run: node tests/import-preflight.test.cjs
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
+const end=html.indexOf('  const duplicateGroups=new Map()',start);
+assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
+const helpers=html.slice(start,end);
+const make=new Function('dateCol','codeCol','typeCol','sharesCol','priceCol',helpers+';return {strictDate,numberKey,signatureParts,signature};');
+const x=make(0,1,2,3,4);
+assert.equal(x.strictDate('2026/9/1'),'2026-09-01');
+assert.equal(x.strictDate('2026-09-01'),'2026-09-01');
+assert.equal(x.strictDate('5/6/16'),null);
+assert.equal(x.strictDate('2026/02/30'),null);
+assert.equal(x.numberKey('1,000.00'),'1000');
+assert.equal(x.numberKey('10.50'),'10.5');
+assert.equal(x.numberKey(''),null);
+assert.equal(x.signatureParts('2026/9/1','0056','現股','1,000','72.20'),x.signatureParts('2026-09-01','0056','現股',1000,72.2));
+assert.notEqual(x.signatureParts('2026/9/1','0056','現股',1000,72.2),x.signatureParts('2026/9/1','0056','現股',500,72.2));
+assert.equal(x.signatureParts('5/6/16','0056','現股',1000,72.2),null);
+console.log('PASS: 10 Excel preflight normalization assertions');
