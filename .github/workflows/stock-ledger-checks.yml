@@ -13,3 +13,4 @@ jobs:
           node-version: '22'
       - run: node --check tests/cost-ledger.test.cjs
       - run: node tests/cost-ledger.test.cjs
+      - run: node tests/import-preflight.test.cjs
