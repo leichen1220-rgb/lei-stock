@@ -38,17 +38,17 @@ begin
   where s.batch_id=p_batch_id and s.owner_id=v_owner and (
    nullif(s.transaction_data->>'ticker','') is null
    or (s.transaction_data->>'ticker') !~ '^[0-9A-Z]{2,12}$'
-   or (s.transaction_data->>'trade_date') !~ '^\\d{4}-\\d{2}-\\d{2}$'
+   or (s.transaction_data->>'trade_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
    or (s.transaction_data->>'transaction_type') not in ('現股','現金股息','股票股利')
-   or (s.transaction_data->>'transaction_type'='現股'
-       and ((s.transaction_data->>'quantity')::numeric=0
-        or (s.transaction_data->>'price')::numeric<=0
-        or (s.transaction_data->>'trade_fees')::numeric<0))
-   or (s.transaction_data->>'transaction_type'='股票股利'
-       and (s.transaction_data->>'quantity')::numeric<=0)
-   or (s.transaction_data->>'transaction_type'='現金股息'
-       and ((s.transaction_data->>'dividend_gross')::numeric<0
-        or coalesce((s.transaction_data->>'wire_fee')::numeric,0)<0))
+   or (s.transaction_data->>'transaction_type'='現股' and (
+      coalesce(s.transaction_data->>'quantity','') !~ '^-?[0-9]+(\\.[0-9]+)?$'
+      or coalesce(s.transaction_data->>'price','') !~ '^[0-9]+(\\.[0-9]+)?$'
+      or coalesce(s.transaction_data->>'trade_fees','') !~ '^[0-9]+(\\.[0-9]+)?$'))
+   or (s.transaction_data->>'transaction_type'='股票股利' and
+      coalesce(s.transaction_data->>'quantity','') !~ '^[0-9]+(\\.[0-9]+)?$')
+   or (s.transaction_data->>'transaction_type'='現金股息' and (
+      coalesce(s.transaction_data->>'dividend_gross','') !~ '^[0-9]+(\\.[0-9]+)?$'
+      or coalesce(s.transaction_data->>'wire_fee','0') !~ '^[0-9]+(\\.[0-9]+)?$'))
   )
  ) then raise exception 'Invalid staged transaction'; end if;
 
