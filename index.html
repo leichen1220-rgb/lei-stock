@@ -403,6 +403,14 @@ $('excelFile').addEventListener('change',async e=>{
      reviewed_paid_cost:paidCost558Review&&position===558?5512:null});
    }
   }
+  // A user-confirmed correction is preserved even when the source cell is
+  // empty or formula-derived; never fabricate a database cost field.
+  const reviewedPaidCostRows=paidCost558Review?[{
+   excel_row:558,ticker:'2327',reviewed_paid_cost:5512,
+   source_paid_cost:paidCost558Source===null?null:Number(paidCost558Source),
+   source_column:paidCostCol>=0?header[paidCostCol]:null,
+   persisted_in_cloud:false
+  }]:[];
   const paidCostAudit='<p>付出成本獨立核對：'+
    (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
    '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態的非數字或空白成本另列 '+paidCostProfitRows.length+' 列（數字成本仍保留核對）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
@@ -712,7 +720,7 @@ $('excelFile').addEventListener('change',async e=>{
    confirmed_footer_rows:confirmedFooterRows.map(x=>x.position),
    footer_trade_conflicts:footerTradeConflicts.map(x=>x.position),
    disposition:importDisposition,
-   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
+   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,reviewed_rows:reviewedPaidCostRows,cloud_field_available:false},
    review_decisions:originalReviewMatches?{
     price_override:{excel_row:307,ticker:'2002',price:20.1},
     confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
@@ -742,6 +750,10 @@ $('excelFile').addEventListener('change',async e=>{
   importPlan.blockers=[...blockers];
   importPlan.blockers=[...blockers];
   importPlan.production_import_blockers=[...blockers,'付出成本尚未存入正式交易欄位，需先完成成本核帳'];
+  // Stage is deliberately blocked until costs can be retained end-to-end.
+  // The reviewed value must not be silently dropped when staging succeeds.
+  if(reviewedPaidCostRows.length&&importPlan.rows.some(x=>x.excel_row===558))
+   blockers.push('第 558 列付出成本 5,512 元尚無雲端欄位可保存；禁止暫存直到成本欄位完成');
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
