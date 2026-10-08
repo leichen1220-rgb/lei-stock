@@ -62,4 +62,8 @@ const auditSql=fs.readFileSync('sql/04_readiness_audit.sql','utf8');
 for(const token of ['information_schema.columns','relrowsecurity','has_table_privilege','has_function_privilege','stock_transactions','stock_import_batches','stock_import_stage_rows','stock_stage_import','stock_commit_import'])
  assert.ok(auditSql.includes(token),'Readiness audit missing: '+token);
 assert.ok(!/\\b(?:insert\\s+into|update\\s+public\\.|delete\\s+from|truncate\\s+|drop\\s+table|alter\\s+table|create\\s+table)\\b/i.test(auditSql.replace(/--[^\\n]*/g,'')),'Readiness audit must be read-only');
+const readinessSql=fs.readFileSync('sql/05_import_readiness_rpc.sql','utf8');
+for(const token of ['stock_import_readiness','security invoker','auth.uid()','stock_transactions','stock_import_batches','initial_import_allowed','writes_performed', 'grant execute on function public.stock_import_readiness'])
+ assert.ok(readinessSql.includes(token),'Missing readiness invariant: '+token);
+assert.ok(!/\\b(?:insert\\s+into|update\\s+public\\.|delete\\s+from|truncate\\s+|drop\\s+table|alter\\s+table)\\b/i.test(readinessSql.replace(/--[^\\n]*/g,'')),'Readiness RPC must not modify tables');
 console.log('PASS: SQL staging and commit static safety checks (database execution not tested)');
