@@ -364,7 +364,29 @@ $('excelFile').addEventListener('change',async e=>{
   const paidCost558Raw=paidCostCol>=0&&row558?row558.row[paidCostCol]:null;
   const paidCost558Source=paidCost558Raw===null?null:numberKey(paidCost558Raw);
   const paidCost558Review=originalReviewMatches&&row558&&normalizeTicker(row558.row[codeCol])==='6175'?{excel_row:558,ticker:'6175',confirmed_paid_cost:5512,source_column:paidCostCol>=0?header[paidCostCol]:null,source_value:paidCost558Source===null?String(paidCost558Raw??''):Number(paidCost558Source),applied_to_transaction:false}:null;
-  const paidCostAudit='<p>付出成本獨立核對：'+(paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+(paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+'目前資料庫尚無獨立付出成本欄位，正式匯入前須完成成本保存與核帳。</p>';
+  // Record every source paid-cost cell by original Excel row, not only the
+  // manually reviewed row. These values are audit metadata, not trade prices.
+  const paidCostRows=[],paidCostInvalidRows=[];
+  for(const {row,position} of valid){
+   if(String(row[typeCol]??'').trim()!=='現股')continue;
+   const raw=paidCostCol>=0?row[paidCostCol]:null;
+   const sourceText=String(raw??'').trim();
+   if(!sourceText)continue;
+   const parsed=numberKey(raw);
+   if(parsed===null||!Number.isFinite(Number(parsed))||Number(parsed)<0){
+    paidCostInvalidRows.push({excel_row:position,source_value:sourceText});
+   }else{
+    paidCostRows.push({excel_row:position,ticker:normalizeTicker(row[codeCol]),
+     source_paid_cost:Number(parsed),
+     reviewed_paid_cost:paidCost558Review&&position===558?5512:null});
+   }
+  }
+  const paidCostAudit='<p>付出成本獨立核對：'+
+   (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
+   '來源現股成本有值 '+paidCostRows.length+' 列，無法解析 '+paidCostInvalidRows.length+' 列。'+
+   (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
+   (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
+   '目前資料庫尚無獨立付出成本欄位，正式匯入前須完成成本保存與核帳。</p>';
   // Source workbook uses the exact labels 手續費＆交易稅 and 實領\\n股息.
   // Dividend rows can contain formula errors in the fee column; that column
   // applies to 現股 only and must not be treated as a cash-dividend fee.
@@ -653,7 +675,7 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    source_row_count:sourceRows.length,
    disposition:importDisposition,
-   paid_cost_audit:{column_recognized:paidCostCol>=0,row_558:paidCost558Review,cloud_field_available:false},
+   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
    review_decisions:originalReviewMatches?{
     price_override:{excel_row:307,ticker:'2002',price:20.1},
     confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
@@ -681,6 +703,7 @@ $('excelFile').addEventListener('change',async e=>{
    transaction.sequence_no!==excel_row);
   if(payloadKeyErrors.length)blockers.push('匯入欄位或原始列號不一致：'+payloadKeyErrors.length+' 筆');
   importPlan.blockers=[...blockers];
+  importPlan.production_import_blockers=[...blockers,'付出成本尚未存入正式交易欄位，需先完成成本核帳'];
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
