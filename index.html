@@ -324,7 +324,16 @@ $('excelFile').addEventListener('change',async e=>{
    String(item.row[typeCol]??'').trim()==='現股';
   const refundRows=candidateRows.filter(item=>!waitingSet.has(item)&&
    (String(item.row[typeCol]??'').trim()==='增資退款'||verifiedRefund(item)));
-  const specialRows=new Set([...waitingRows,...refundRows]);
+  // Confirmed original-file review decisions. These are scoped to the
+  // exact SHA-256; modified Excel files must be reviewed again.
+  const originalReviewMatches=workbookSha===originalWorkbookSha;
+  const verifiedDuplicatePair=originalReviewMatches&&candidateRows.some(x=>x.position===554)&&
+   candidateRows.some(x=>x.position===557)&&
+   normalizeTicker(candidateRows.find(x=>x.position===554).row[codeCol])==='6175'&&
+   normalizeTicker(candidateRows.find(x=>x.position===557).row[codeCol])==='6175';
+  const confirmedDuplicateRows=verifiedDuplicatePair?
+   candidateRows.filter(x=>x.position===557):[];
+  const specialRows=new Set([...waitingRows,...refundRows,...confirmedDuplicateRows]);
   const executableRows=candidateRows.filter(item=>!specialRows.has(item));
   const missingCodeRows=executableRows.filter(({row})=>!String(row[codeCol]??'').trim()&&validTypes.has(String(row[typeCol]??'').trim()));
   const after=executableRows.filter(({row})=>String(row[codeCol]??'').trim());
@@ -334,6 +343,10 @@ $('excelFile').addEventListener('change',async e=>{
   const needsReview=suspect.filter(({row})=>String(row[dateCol]??'').trim());
   const statusWarning=statusCol<0?'<p class="danger">找不到「狀態」欄：目前無法確認哪些紀錄尚未成交，禁止正式匯入。</p>':'';
   const verifiedRefundCount=refundRows.filter(verifiedRefund).length;
+  const reviewedCorrectionsPreview=originalReviewMatches?
+   '<p><strong>已核實原始檔修正：</strong>第 307 列成交價使用 20.1（僅匯入資料，不修改 Excel）；'+
+   (verifiedDuplicatePair?'第 554、557 列為重複，保留 554、排除 557；':'第 554、557 列待驗證；')+
+   '第 558 列付出成本應為 5,512 元，尚待對應欄位確認，不會擅自當作成交價或費用。</p>':'';
   const pendingPreview='<section><strong>非成交資料分類（不納入持股）</strong>'+
    '<p>等待中的交易計畫：'+waitingRows.length+' 列'+(waitingRows.length?'（Excel 第 '+waitingRows.slice(0,15).map(x=>x.position).join('、')+' 列）':'')+'；增資退款：'+refundRows.length+' 列'+(refundRows.length?'（第 '+refundRows.map(x=>x.position).join('、')+' 列）':'')+'。</p>'+
    statusWarning+
@@ -557,7 +570,8 @@ $('excelFile').addEventListener('change',async e=>{
   for(const {row,position} of valid){
    const ticker=normalizeTicker(row[codeCol]),type=String(row[typeCol]??'').trim(),date=strictDate(row[dateCol]);
    const quantity=type==='現金股息'?null:decimal(row[sharesCol],true);
-   const price=type==='現股'?decimal(row[priceCol],true):null;
+   const price=type==='現股'&&originalReviewMatches&&position===307&&ticker==='2002'?
+    20.1:(type==='現股'?decimal(row[priceCol],true):null);
    const fees=type==='現股'?decimal(feeCol<0?'':row[feeCol],true):null;
    const net=type==='現金股息'?decimal(dividendCol<0?'':row[dividendCol],true):null;
    const wire=type==='現金股息'?decimal(wireCol<0?'':row[wireCol],false):null;
@@ -632,6 +646,11 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    source_row_count:sourceRows.length,
    disposition:importDisposition,
+   review_decisions:originalReviewMatches?{
+    price_override:{excel_row:307,ticker:'2002',price:20.1},
+    confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
+    cost_review:{excel_row:558,paid_cost:5512,applied:false}
+   }:null,
    unaccounted_rows:unaccounted.map(x=>x.position),
    rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))
   };
@@ -657,7 +676,7 @@ $('excelFile').addEventListener('change',async e=>{
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
-   unaccountedDetail+conversionDetail+
+   reviewedCorrectionsPreview+unaccountedDetail+conversionDetail+
    '<p class="muted">原始檔 SHA-256：'+(importPlan.source_sha256||'無法計算')+'；交易資料 SHA-256：'+(importPlan.payload_sha256||'無法計算')+'</p>'+
    '<p><button type="button" id="exportImportPlan">下載匯入計畫（JSON）</button></p>'+
    '<p><button type="button" id="checkImportReadiness">檢查雲端匯入環境（唯讀）</button> <span id="importReadinessResult" aria-live="polite"></span></p>'+
