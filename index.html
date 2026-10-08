@@ -29,10 +29,11 @@
 <div class="card"><h2>股票名稱對照</h2><form id="tickerform" class="actions"><input name="ticker" placeholder="代號" required><input name="display_name" placeholder="股票名稱" required><button class="primary">新增／更新</button></form><div id="tickerlist"></div></div>
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
 <div class="card"><h2>收盤價手動登錄</h2><form id="priceform" class="actions"><input name="ticker" placeholder="股票代號" required><input name="price_date" type="date" required><input name="close_price" type="number" min="0" step="any" placeholder="收盤價" required><button class="primary">儲存</button></form></div>
-<div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 Excel（目前為新系統欄位格式，尚未完全還原舊 Excel 公式）與系統 JSON；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份（Excel＋JSON）</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span></div></div>
+<div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div></div>
 </section></section></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 (()=>{'use strict';
 const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
@@ -80,8 +81,8 @@ $('bankform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;co
 $('priceform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;try{await call('stock_closing_prices',q=>q.select('ticker').limit(1));msg('收盤價目前為唯讀資料表；請等待受控更新服務接通。');}catch(err){msg(err.message,true)}};
 function download(filename,body,mime){const blob=new Blob([body],{type:mime}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('backup').onclick=()=>{download('lei-stock-'+today()+'.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),transactions:trades,tickers,banks,closing_prices:prices},null,2),'application/json');localStorage.setItem('lei-stock-last-backup',today());$('backupdate').textContent='上次下載：'+today();};
-$('backupBoth').onclick=()=>{
- if(!window.XLSX){msg('Excel 工具尚未載入，請確認網路連線',true);return;}
+$('backupBoth').onclick=async()=>{
+ if(!window.XLSX||!window.JSZip){msg('Excel 或 ZIP 工具尚未載入，請確認網路連線',true);return;}
  try{
   const stamp=today();
   const wb=XLSX.utils.book_new();
@@ -99,11 +100,15 @@ $('backupBoth').onclick=()=>{
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(holdingRows,{header:['代號','股票名稱','持有股數','累計淨股息']}),'持股總覽');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(tickers.map(t=>({代號:t.ticker,股票名稱:t.display_name})),{header:['代號','股票名稱']}),'個股代號');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(banks.map(b=>({代號:b.ticker,保管銀行:b.custodian_bank||'',入帳銀行:b.payout_bank||'',帳號末四碼:b.account_last4||'',備註:b.note||''})),{header:['代號','保管銀行','入帳銀行','帳號末四碼','備註']}),'ETF保管銀行');
-  XLSX.writeFile(wb,'lei-stock-'+stamp+'.xlsx');
-  download('lei-stock-'+stamp+'.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),transactions:trades,tickers,banks,closing_prices:prices},null,2),'application/json');
-  localStorage.setItem('lei-stock-last-backup',stamp);
-  $('backupdate').textContent='上次下載：'+stamp;
-  msg('已啟動 Excel 與 JSON 雙重備份下載；請確認瀏覽器允許兩個檔案下載。');
+  const zip=new JSZip();
+  zip.file('股票紀錄.xlsx',XLSX.write(wb,{bookType:'xlsx',type:'array'}));
+  zip.file('system_backup.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),transactions:trades,tickers,banks,closing_prices:prices},null,2));
+  zip.file('backup_manifest.json',JSON.stringify({version:1,created_at:new Date().toISOString(),transaction_count:trades.length,ticker_count:tickers.length,bank_count:banks.length,price_count:prices.length},null,2));
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  const href=URL.createObjectURL(blob),a=document.createElement('a');a.href=href;a.download='股票雙重備份_'+stamp+'.zip';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(href),60000);
+  localStorage.setItem('lei-stock-last-backup',new Date().toISOString());
+  showBackupReminder();
+  msg('已啟動 ZIP 雙重備份下載（Excel＋JSON＋清單）；請確認檔案已保存。');
  }catch(err){msg('雙重備份失敗：'+err.message,true);}
 };
 $('csv').onclick=()=>{const cols=['trade_date','ticker','transaction_type','quantity','price','trade_fees','dividend_gross','wire_fee','payment_date','payment_confirmed','note'];const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s)&&isNaN(Number(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};download('lei-stock-'+today()+'.csv','\ufeff'+[cols.join(','),...trades.map(t=>cols.map(k=>safe(t[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8');};
@@ -129,7 +134,13 @@ $('excelFile').addEventListener('change',async e=>{
   out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>辨識交易：'+after.length+' 筆；欄位：'+header.length+' 欄；需檢查：'+issues.length+' 筆</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+after.slice(0,5).map(r=>'<p>'+mask(r)+'</p>').join('')+'</div>'+(issues.length?'<p class="danger">'+issues.slice(0,8).map(esc).join('；')+'</p>':'')+'<p>安全起見，此階段僅預覽；尚未啟用批量寫入。</p>';
  }catch(err){out.textContent='讀取失敗：'+err.message;}
 });
-$('backupdate').textContent=localStorage.getItem('lei-stock-last-backup')?'上次下載：'+localStorage.getItem('lei-stock-last-backup'):'尚未下載備份';
+function showBackupReminder(){
+ const raw=localStorage.getItem('lei-stock-last-backup'),time=raw?new Date(raw):null;
+ const valid=time&&!isNaN(time.getTime()),days=valid?Math.floor((Date.now()-time.getTime())/86400000):null;
+ $('backupdate').textContent=valid?'上次備份：'+time.toLocaleString('zh-TW'):'尚未下載備份';
+ $('backupReminder').textContent=days===null?'建議先建立第一份備份':days>=7?'距上次備份已 '+days+' 天，建議重新備份':'距下次每週提醒約 '+(7-days)+' 天';
+}
+showBackupReminder();
 reset();if(!client){msg('無法載入 Supabase 函式庫',true);return}client.auth.onAuthStateChange((_event,session)=>{const prev=user?.id;user=session?.user||null;authUI();if(user&&user.id!==prev)setTimeout(load,0);if(!user){trades=[];tickers=[];banks=[];prices=[];render();}});client.auth.getSession().then(({data})=>{user=data.session?.user||null;authUI();if(user)load();});
 })();
 </script></body></html>
