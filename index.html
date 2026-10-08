@@ -368,15 +368,24 @@ $('excelFile').addEventListener('change',async e=>{
   const paidCost558Review=originalReviewMatches&&row558&&normalizeTicker(row558.row[codeCol])==='6175'?{excel_row:558,ticker:'6175',confirmed_paid_cost:5512,source_column:paidCostCol>=0?header[paidCostCol]:null,source_value:paidCost558Source===null?String(paidCost558Raw??''):Number(paidCost558Source),applied_to_transaction:false}:null;
   // Record every source paid-cost cell by original Excel row, not only the
   // manually reviewed row. These values are audit metadata, not trade prices.
-  const paidCostRows=[],paidCostInvalidRows=[];
+  // Profit / intraday-profit rows may display calculated profit text in the
+  // same Excel column. Preserve it for audit, but do not demand a numeric
+  // purchase cost on a realized-profit status.
+  const profitStatuses=new Set(['獲利','當沖獲利']);
+  const paidCostRows=[],paidCostInvalidRows=[],paidCostProfitRows=[];
   for(const {row,position} of valid){
    if(String(row[typeCol]??'').trim()!=='現股')continue;
    const raw=paidCostCol>=0?row[paidCostCol]:null;
    const sourceText=String(raw??'').trim();
+   const status=statusCol>=0?String(row[statusCol]??'').trim():'';
+   if(profitStatuses.has(status)){
+    paidCostProfitRows.push({excel_row:position,status,source_value:sourceText});
+    continue;
+   }
    if(!sourceText)continue;
    const parsed=paidCostNumberKey(raw);
    if(parsed===null||!Number.isFinite(Number(parsed))||Number(parsed)<0){
-    paidCostInvalidRows.push({excel_row:position,source_value:sourceText});
+    paidCostInvalidRows.push({excel_row:position,status,source_value:sourceText});
    }else{
     paidCostRows.push({excel_row:position,ticker:normalizeTicker(row[codeCol]),
      source_paid_cost:Number(parsed),
@@ -385,7 +394,7 @@ $('excelFile').addEventListener('change',async e=>{
   }
   const paidCostAudit='<p>付出成本獨立核對：'+
    (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
-   '來源現股成本有值 '+paidCostRows.length+' 列，無法解析 '+paidCostInvalidRows.length+' 列。'+
+   '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態另列 '+paidCostProfitRows.length+' 列（不當作買入成本異常）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
    (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
    (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
    '目前資料庫尚無獨立付出成本欄位，正式匯入前須完成成本保存與核帳。</p>';
@@ -631,7 +640,7 @@ $('excelFile').addEventListener('change',async e=>{
   for(const item of conversionErrors)for(const reason of item.errors)flag(item.position,'轉換：'+reason);
   for(const item of paidCostInvalidRows)flag(item.excel_row,'付出成本：無法解析原始值 '+String(item.source_value).slice(0,50));
   if(paidCostCol<0)blockers.push('無法辨識原始付出成本欄，不能核對買賣成本');
-  if(paidCostInvalidRows.length)blockers.push('有 '+paidCostInvalidRows.length+' 筆現股付出成本來源無法解析，須逐列核對');
+  if(paidCostInvalidRows.length)blockers.push('有 '+paidCostInvalidRows.length+' 筆非獲利狀態現股付出成本來源無法解析，須逐列核對');
   for(const item of missingCodeRows)flag(item.position,'缺股票代號');
   for(const item of badCodeRows)flag(item.position,'代號格式異常');
   for(const item of unresolvedTradeRows)flag(item.position,'代號未核實');
@@ -679,7 +688,7 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    source_row_count:sourceRows.length,
    disposition:importDisposition,
-   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
+   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
    review_decisions:originalReviewMatches?{
     price_override:{excel_row:307,ticker:'2002',price:20.1},
     confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
