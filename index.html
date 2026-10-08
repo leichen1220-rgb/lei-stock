@@ -29,9 +29,10 @@
 <div class="card"><h2>股票名稱對照</h2><form id="tickerform" class="actions"><input name="ticker" placeholder="代號" required><input name="display_name" placeholder="股票名稱" required><button class="primary">新增／更新</button></form><div id="tickerlist"></div></div>
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
 <div class="card"><h2>收盤價手動登錄</h2><form id="priceform" class="actions"><input name="ticker" placeholder="股票代號" required><input name="price_date" type="date" required><input name="close_price" type="number" min="0" step="any" placeholder="收盤價" required><button class="primary">儲存</button></form></div>
-<div class="card"><h2>備份與資料匯出</h2><p class="muted">匯出完整系統 JSON 及可用 Excel 開啟的交易 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backup">下載 JSON 備份</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span></div></div>
+<div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">匯出完整系統 JSON 及可用 Excel 開啟的交易 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backup">下載 JSON 備份</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span></div></div>
 </section></section></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 (()=>{'use strict';
 const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
@@ -80,6 +81,28 @@ $('priceform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;t
 function download(filename,body,mime){const blob=new Blob([body],{type:mime}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('backup').onclick=()=>{download('lei-stock-'+today()+'.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),transactions:trades,tickers,banks,closing_prices:prices},null,2),'application/json');localStorage.setItem('lei-stock-last-backup',today());$('backupdate').textContent='上次下載：'+today();};
 $('csv').onclick=()=>{const cols=['trade_date','ticker','transaction_type','quantity','price','trade_fees','dividend_gross','wire_fee','payment_date','payment_confirmed','note'];const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s)&&isNaN(Number(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};download('lei-stock-'+today()+'.csv','\ufeff'+[cols.join(','),...trades.map(t=>cols.map(k=>safe(t[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8');};
+// Import inspection only: no remote writes or file uploads.
+$('excelFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0],out=$('excelPreview');if(!file)return;
+ if(!window.XLSX){out.textContent='Excel 解析工具未載入，請確認網路';return;}
+ try{
+  const bytes=await file.arrayBuffer(),book=XLSX.read(bytes,{type:'array',cellDates:true});
+  const sheetName=book.SheetNames.find(n=>n.trim()==='股票明細');
+  if(!sheetName){out.textContent='找不到「股票明細」工作表。找到的工作表：'+book.SheetNames.join('、');return;}
+  const matrix=XLSX.utils.sheet_to_json(book.Sheets[sheetName],{header:1,defval:'',raw:false});
+  const rows=matrix.filter(row=>row.some(c=>String(c).trim()!==''));
+  const normalized=s=>String(s??'').replace(/[\\s＆&()（）]/g,'').trim();
+  const headerIndex=rows.findIndex(row=>row.some(c=>normalized(c)==='代號')&&row.some(c=>normalized(c).includes('交易別')));
+  if(headerIndex<0){out.textContent='找到股票明細，但無法辨識欄位標題；沒有匯入任何資料。';return;}
+  const header=rows[headerIndex].map(normalized), idx=(...names)=>header.findIndex(h=>names.some(n=>h===normalized(n)));
+  const codeCol=idx('代號','股票代號'),dateCol=idx('成交/除權息日','成交/除權息日期','成交除權息日'),typeCol=idx('交易別'),sharesCol=idx('股數'),priceCol=idx('成交價');
+  const after=rows.slice(headerIndex+1).filter(r=>String(r[codeCol]||'').trim());
+  const issues=[];
+  after.forEach((r,i)=>{const t=String(r[typeCol]||'').trim();if(!['現股','現金股息','股票股利'].includes(t))issues.push('第 '+(headerIndex+i+2)+' 列：交易別 '+t+' 待確認');});
+  const mask=(r)=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
+  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>辨識交易：'+after.length+' 筆；欄位：'+header.length+' 欄；需檢查：'+issues.length+' 筆</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+after.slice(0,5).map(r=>'<p>'+mask(r)+'</p>').join('')+'</div>'+(issues.length?'<p class="danger">'+issues.slice(0,8).map(esc).join('；')+'</p>':'')+'<p>安全起見，此階段僅預覽；尚未啟用批量寫入。</p>';
+ }catch(err){out.textContent='讀取失敗：'+err.message;}
+});
 $('backupdate').textContent=localStorage.getItem('lei-stock-last-backup')?'上次下載：'+localStorage.getItem('lei-stock-last-backup'):'尚未下載備份';
 reset();if(!client){msg('無法載入 Supabase 函式庫',true);return}client.auth.onAuthStateChange((_event,session)=>{const prev=user?.id;user=session?.user||null;authUI();if(user&&user.id!==prev)setTimeout(load,0);if(!user){trades=[];tickers=[];banks=[];prices=[];render();}});client.auth.getSession().then(({data})=>{user=data.session?.user||null;authUI();if(user)load();});
 })();
