@@ -48,6 +48,11 @@ assert.ok(html.indexOf('const waitingRows=candidateRows.filter')<html.indexOf('c
 assert.ok(html.includes("String(row[statusCol]??'').trim()==='等待'"),'Pending classification must use the actual status column');
 assert.ok(html.includes("if(statusCol<0)blockers.push"),'Missing status column must block import');
 assert.ok(html.includes("statusCol>=0&&String(row[statusCol]"),'Pending trades must use the status column');
+assert.ok(html.includes('const importPlan={'),'Explicit dry-run import plan must exist');
+assert.ok(html.includes('dry_run:true,cloud_write_performed:false'),'Import plan must not imply a cloud write');
+assert.ok(html.includes('rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))'),'Source row must be kept outside database payload');
+assert.ok(html.includes('id="exportImportPlan"'),'Import plan must be downloadable');
+assert.ok(html.includes('失敗時整批回滾'),'Atomic import requirement must be visible');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
