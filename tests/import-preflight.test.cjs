@@ -19,6 +19,10 @@ assert.ok(html.includes('dividend_gross:gross'),'Import must convert net dividen
 assert.ok(html.includes('if(conversionErrors.length)blockers.push'),'Invalid conversions must block import');
 assert.ok(html.includes('6201 與 006201 永遠是不同代號'),'Leading-zero distinction must be documented');
 assert.ok(html.includes('const normalizeTicker=v=>'),'Ticker normalizer must exist');
+assert.ok(html.includes('internalConflictCodes.add(code)'),'Internal name conflicts must be tracked by exact code');
+assert.ok(html.includes('cloudConflictCodes.add(code)'),'Cloud name conflicts must be tracked by exact code');
+assert.ok(html.includes('new Set([...internalConflictCodes,...cloudConflictCodes])'),'Conflict detection must not parse display messages');
+assert.ok(!html.includes('new Set(nameIssues.map(issue=>'),'Conflict detection must not depend on warning text');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
