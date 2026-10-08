@@ -13,6 +13,10 @@ assert.match(html,/目前正式匯入功能維持關閉/,'Import must remain dis
 assert.match(html,/normalize\('NFKC'\)/,'Excel headers must normalize full-width characters');
 assert.match(html,/手續費＆交易稅/,'Source Excel fee header must be recognized');
 assert.match(html,/入賬時間/,'Source Excel payout header must be recognized');
+assert.ok(html.includes('const conversionErrors=[],convertedTrades=[];'),'Typed import conversion must exist');
+assert.ok(html.includes('sequence_no:position'),'Import must preserve original Excel order');
+assert.ok(html.includes('dividend_gross:gross'),'Import must convert net dividends to gross');
+assert.ok(html.includes('if(conversionErrors.length)blockers.push'),'Invalid conversions must block import');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
