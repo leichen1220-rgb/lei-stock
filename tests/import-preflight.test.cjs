@@ -169,3 +169,11 @@ assert.ok(html.includes("requires_sql_migration:'sql/06_paid_cost_and_import_com
 
 assert.ok(html.includes('if(profitStatuses.has(status)){'),'Profit status rows must be separated even when numeric');
 assert.ok(html.includes('numeric_value:parsed===null?null:Number(parsed)'),'Preserve profit-cell numeric values for audit, not paid cost');
+
+assert.ok(html.includes("errors.push('現股股數（原始值：'"),'Show exact invalid quantity');
+assert.ok(html.includes("errors.push('成交價（原始值：'"),'Show exact invalid price');
+assert.ok(html.includes("errors.push('手續費／交易稅（原始值：'"),'Show exact invalid fees');
+assert.ok(html.includes('source_fields:{'),'Export raw conversion fields for audit');
+assert.ok(html.includes('applied_price:price,applied_paid_cost:paidCost'),'Export reviewed values separately');
+assert.ok(html.includes('reviewedCorrectionsPreview+correctionDiagnosticPreview'),'Surface field-level diagnostics in import preview');
+assert.ok(!html.includes("errors.push('現股數量／價格／費用')"),'Never hide failing field behind generic combined error');
