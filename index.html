@@ -74,8 +74,15 @@ async function checkStockImportReadiness(button,result){
    throw new Error('資料庫筆數不正確');
   if(data.initial_import_allowed!==(count===0))
    throw new Error('匯入資格與實際交易筆數不一致');
+  // Report migration 06 separately from basic connectivity; the
+  // readiness RPC does not exist until the user runs that SQL in Supabase.
+  const {data:costReady,error:costError}=await client.rpc('stock_paid_cost_readiness');
+  const costInstalled=!costError&&costReady?.schema_version===1&&
+   costReady?.paid_cost_column===true&&costReady?.commit_function_updated===true;
   result.textContent='Supabase 連線成功：現有交易 '+count+' 筆，暫存批次 '+staged+
-   ' 筆。'+(count===0?'帳本目前為空，可進行後續匯入驗收。':'已有交易，禁止初次匯入以免重複。')+'本次沒有寫入資料。';
+   ' 筆。'+(count===0?'帳本目前為空，可進行後續匯入驗收。':'已有交易，禁止初次匯入以免重複。')+
+   '付出成本 SQL 06：'+(costInstalled?'已安裝（唯讀檢查通過）。':'尚未確認安裝；請先在 Supabase 執行 sql/06_paid_cost_and_import_commit.sql。')+
+   '本次沒有寫入資料。';
  }catch(err){
   result.textContent='雲端驗收未通過：'+(err?.message||String(err))+'。沒有寫入資料。';
  }finally{button.disabled=false;}
