@@ -5,7 +5,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 assert.match(html,/sheet_to_json\(book\.Sheets\[sheetName\],\{header:1,defval:'',raw:true\}\)/,'Transaction worksheet must use raw Excel dates');
-assert.match(html,/missingCodeRows=candidateRows\.filter/,'Transactions with missing tickers must be audited');
+assert.match(html,/missingCodeRows=executableRows\.filter/,'Transactions with missing tickers must be audited');
 assert.match(html,/const blockers=\[\];/,'Import safety gate must exist');
 assert.match(html,/if\(missingCodeRows\.length\)blockers\.push/,'Missing tickers must block import');
 assert.match(html,/if\(potentialCloudMatches\.length\)blockers\.push/,'Cloud duplicate candidates must block import');
