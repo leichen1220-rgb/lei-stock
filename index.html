@@ -324,7 +324,7 @@ $('excelFile').addEventListener('change',async e=>{
   let nameSheetCount=0,nameSheetValid=false;
   if(nameSheet){
    const nameRows=XLSX.utils.sheet_to_json(book.Sheets[nameSheet],{header:1,defval:'',raw:false});
-   const normName=v=>String(v??'').replace(/[\\s（）()]/g,'').trim();
+   const normName=v=>String(v??'').replace(/[\s（）()]/g,'').trim();
    const headerRow=nameRows.findIndex(row=>row.some(v=>['代號','股票代號','個股代號','股票代碼'].includes(normName(v)))&&row.some(v=>['股票名稱','名稱','個股名稱','證券名稱'].includes(normName(v))));
    if(headerRow>=0){
     const headings=nameRows[headerRow].map(normName);
