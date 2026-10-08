@@ -46,6 +46,8 @@ assert.ok(html.includes("saved.rows.length!==reviewExport.rows.length"),'Changed
 assert.ok(html.includes("id=\"restoreImportReview\""),'Review report upload control must exist');
 assert.ok(html.indexOf('const waitingRows=candidateRows.filter')<html.indexOf('const valid=after.filter'),'Pending status must be classified before executed trades');
 assert.ok(html.includes("String(row[statusCol]??'').trim()==='等待'"),'Pending classification must use the actual status column');
+assert.ok(html.includes("if(statusCol<0)blockers.push"),'Missing status column must block import');
+assert.ok(html.includes("statusCol>=0&&String(row[statusCol]"),'Pending trades must use the status column');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
