@@ -629,6 +629,9 @@ $('excelFile').addEventListener('change',async e=>{
   const reviewByRow=new Map();
   const flag=(position,reason)=>{if(!reviewByRow.has(position))reviewByRow.set(position,new Set());reviewByRow.get(position).add(reason);};
   for(const item of conversionErrors)for(const reason of item.errors)flag(item.position,'轉換：'+reason);
+  for(const item of paidCostInvalidRows)flag(item.excel_row,'付出成本：無法解析原始值 '+String(item.source_value).slice(0,50));
+  if(paidCostCol<0)blockers.push('無法辨識原始付出成本欄，不能核對買賣成本');
+  if(paidCostInvalidRows.length)blockers.push('有 '+paidCostInvalidRows.length+' 筆現股付出成本來源無法解析，須逐列核對');
   for(const item of missingCodeRows)flag(item.position,'缺股票代號');
   for(const item of badCodeRows)flag(item.position,'代號格式異常');
   for(const item of unresolvedTradeRows)flag(item.position,'代號未核實');
@@ -703,6 +706,7 @@ $('excelFile').addEventListener('change',async e=>{
    Object.keys(transaction).some(key=>!allowedImportKeys.has(key))||
    transaction.sequence_no!==excel_row);
   if(payloadKeyErrors.length)blockers.push('匯入欄位或原始列號不一致：'+payloadKeyErrors.length+' 筆');
+  importPlan.blockers=[...blockers];
   importPlan.blockers=[...blockers];
   importPlan.production_import_blockers=[...blockers,'付出成本尚未存入正式交易欄位，需先完成成本核帳'];
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
