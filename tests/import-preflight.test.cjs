@@ -145,3 +145,10 @@ assert.ok(html.includes("if(profitStatuses.has(status)&&parsed===null)"),'Profit
 assert.ok(html.includes("excluded_info_rows:excludedInfoRows"),'Excluded rows must be separately audited');
 assert.ok(html.includes("profit_status_rows:paidCostProfitRows"),'Import audit must retain excluded profit-status rows');
 console.log('PASS: Excel preflight normalization and source-format guards');
+
+assert.match(html,/const confirmedFooterRows=originalReviewMatches\?/,'Footer exclusion must be limited to verified original workbook');
+assert.match(html,/item\.position>footerBoundary/,'Original transaction boundary must exclude only rows after 612');
+assert.match(html,/const footerBoundary=612/,'Original ledger ends at Excel row 612');
+assert.match(html,/const footerTradeConflicts=confirmedFooterRows\.filter/,'Trade-shaped rows in footer must be audited');
+assert.match(html,/if\(footerTradeConflicts\.length\)blockers\.push/,'Unexpected trade-shaped footer rows must block import');
+assert.match(html,/confirmed_footer_rows:confirmedFooterRows\.map/,'Import plan must account for excluded footer rows');
