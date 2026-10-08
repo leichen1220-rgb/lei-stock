@@ -42,4 +42,20 @@ assert.ok(sql.includes("(r.value->'transaction' ? 'owner_id')"),'Reject caller-i
 assert.ok(sql.includes("(r.value->'transaction' ? 'id')"),'Reject caller-injected row IDs');
 assert.ok(sql.includes("'^[0-9A-Z]{2,12}"),'Require exact normalized stock codes');
 assert.ok(sql.includes("'^[0-9]{4}-[0-9]{2}-[0-9]{2}"),'Require ISO date format');
+for(const token of [
+ "t.sequence_no=s.excel_row",
+ "t.trade_date is distinct from",
+ "t.ticker is distinct from",
+ "t.transaction_type is distinct from",
+ "t.quantity is distinct from",
+ "t.price is distinct from",
+ "t.trade_fees is distinct from",
+ "t.dividend_gross is distinct from",
+ "t.wire_fee is distinct from",
+ "t.payment_date is distinct from",
+ "t.note is distinct from",
+ "Inserted transaction content mismatch",
+ "Duplicate imported source row"
+])assert.ok(commitSql.includes(token),'Missing post-write row verification: '+token);
+assert.ok(commitSql.indexOf('Inserted transaction content mismatch')<commitSql.indexOf("set state='committed'"),'Verify inserted content before marking batch committed');
 console.log('PASS: SQL staging and commit static safety checks (database execution not tested)');
