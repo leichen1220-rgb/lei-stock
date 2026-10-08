@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.11.0 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.11.1 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -358,7 +358,11 @@ $('excelFile').addEventListener('change',async e=>{
    '<p class="muted">只比對明確的西元日期、代號、交易別、股數及價格；相同特徵不代表同一筆委託，不會自動略過。</p>';
   // The dedicated stock-code sheet is authoritative for name mappings; never import from a guessed column.
   const nameSheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
-  const existingNames=new Map(tickers.map(t=>[String(t.ticker||'').trim().toUpperCase(),String(t.display_name||'').trim()]));
+  // Stock-code worksheet is authoritative. Normalize invisible/full-width whitespace
+  // and case, but never remove meaningful digits or leading zeros.
+  const normalizeTicker=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'').toUpperCase();
+  const normalizeDisplayName=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'').trim();
+  const existingNames=new Map(tickers.map(t=>[normalizeTicker(t.ticker),normalizeDisplayName(t.display_name)]));
   const proposedNames=new Map(),nameIssues=[];
   let nameSheetCount=0,nameSheetValid=false;
   if(nameSheet){
@@ -371,7 +375,7 @@ $('excelFile').addEventListener('change',async e=>{
     const nameIndex=headings.findIndex(v=>['股票名稱','名稱','個股名稱','證券名稱'].includes(v));
     nameSheetValid=true;
     nameRows.slice(headerRow+1).forEach((row,i)=>{
-     const code=String(row[codeIndex]??'').trim().toUpperCase(),name=String(row[nameIndex]??'').trim();
+     const code=normalizeTicker(row[codeIndex]),name=normalizeDisplayName(row[nameIndex]);
      if(!code&&!name)return;
      nameSheetCount++;
      if(!code||!name){nameIssues.push(nameSheet+' 第 '+(headerRow+i+2)+' 列：代號或名稱缺漏');return;}
@@ -387,7 +391,17 @@ $('excelFile').addEventListener('change',async e=>{
    else if(existingNames.get(code)===name)nameStats.same++;
    else{nameStats.conflict++;nameIssues.push(code+'：雲端「'+existingNames.get(code)+'」／Excel「'+name+'」');}
   }
-  const transactionCodes=new Set(valid.map(({row})=>String(row[codeCol]||'').trim().toUpperCase()).filter(Boolean));
+  const transactionCodes=new Set(valid.map(({row})=>normalizeTicker(row[codeCol])).filter(Boolean));
+  const codeCorrections=[],badCodeRows=[];
+  for(const {row,position} of valid){
+   const raw=String(row[codeCol]??''),code=normalizeTicker(raw);
+   if(raw!==code)codeCorrections.push({position,raw,code});
+   if(!code||!(/^[0-9A-Z]{2,12}$/.test(code)))badCodeRows.push({position,raw});
+  }
+  const codeAudit='<section><strong>代號對照檢查（以個股代號表為準）</strong>'+
+   '<p>明細代號含多餘空白、全形字元或大小寫差異：'+codeCorrections.length+' 列'+(codeCorrections.length?'（例如 Excel 第 '+codeCorrections.slice(0,8).map(x=>x.position+' 列 '+esc(x.raw)+' → '+esc(x.code)).join('；')+'）':'')+'</p>'+
+   '<p>代號空白或格式異常：'+badCodeRows.length+' 列'+(badCodeRows.length?'（第 '+badCodeRows.slice(0,12).map(x=>x.position).join('、')+' 列）':'')+'</p>'+
+   '<p class="muted">只移除代號中的空白／不可見字元並統一全形及英文大小寫；保留前導零，不會猜測、補齊或刪減數字。未出現在代號表中的代號必須人工確認。</p></section>';
   const unmatchedCodes=[...transactionCodes].filter(code=>!proposedNames.has(code)&&!existingNames.has(code));
   const conflictingCodes=new Set(nameIssues.map(issue=>{const match=issue.match(/(?:列：|^)([A-Z0-9]+)\s*(?:名稱不一致|：雲端)/);return match?match[1]:null}).filter(Boolean));
   const affectedConflicts=[...transactionCodes].filter(code=>conflictingCodes.has(code));
@@ -398,7 +412,7 @@ $('excelFile').addEventListener('change',async e=>{
    (nameIssues.length?'<p class="danger">名稱差異：'+nameIssues.slice(0,8).map(esc).join('；')+(nameIssues.length>8?'；其餘 '+(nameIssues.length-8)+' 項':'')+'</p>':'');
   const mask=r=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
   const suspectLines=needsReview.slice(0,12).map(({row,position})=>'第 '+position+' 列：代號 '+esc(row[codeCol])+'；日期 '+esc(row[dateCol])+'；交易別 '+esc(row[typeCol]||'（空白）')).join('<p>','</p>');
-  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；非交易試算區候選：'+footerRows.length+' 列；仍待確認：'+needsReview.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(needsReview.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+nameSummary+mappingCoverage+duplicatePreview+dateAuditPreview+financeAudit+'<p>只有交易別符合三種且通過後續日期、欄位核對的紀錄才可正式匯入。底部試算區不會作為交易上傳；此階段仍僅預覽。</p>';
+  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；非交易試算區候選：'+footerRows.length+' 列；仍待確認：'+needsReview.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(needsReview.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+nameSummary+mappingCoverage+codeAudit+duplicatePreview+dateAuditPreview+financeAudit+'<p>只有交易別符合三種且通過後續日期、欄位核對的紀錄才可正式匯入。底部試算區不會作為交易上傳；此階段仍僅預覽。</p>';
  }catch(err){out.textContent='讀取失敗：'+err.message;}
 });
 function renderCalculator(){
