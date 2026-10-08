@@ -141,6 +141,7 @@ assert.ok(html.includes("flag(item.excel_row,'付出成本：無法解析原始�
 assert.ok(html.includes("if(paidCostInvalidRows.length)blockers.push("),'Invalid source costs must block unsafe production import');
 assert.ok(html.includes("if(paidCostCol<0)blockers.push("),'Missing source cost column must be explicit');
 assert.ok(html.includes("new Set(['獲利','當沖獲利'])"),'Profit statuses must be classified separately');
-assert.ok(html.includes("if(profitStatuses.has(status))"),'Profit-status rows must bypass numeric purchase-cost parsing');
+assert.ok(html.includes("if(profitStatuses.has(status)&&parsed===null)"),'Profit-status rows must bypass numeric purchase-cost parsing');
+assert.ok(html.includes("excluded_info_rows:excludedInfoRows"),'Excluded rows must be separately audited');
 assert.ok(html.includes("profit_status_rows:paidCostProfitRows"),'Import audit must retain excluded profit-status rows');
 console.log('PASS: Excel preflight normalization and source-format guards');
