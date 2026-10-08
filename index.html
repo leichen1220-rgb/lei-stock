@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.12.7 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.12.8 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -551,18 +551,18 @@ $('excelFile').addEventListener('change',async e=>{
   for(const item of refundRows)flag(item.position,'增資退款：資金異動，另行保存');
   const reviewRows=[...reviewByRow].sort((a,b)=>a[0]-b[0]);
   const reviewExport={
-   schema_version:1,source_file:file.name,created_at:new Date().toISOString(),
+   schema_version:2,source_file:file.name,created_at:new Date().toISOString(),
    preview_only:true,cloud_write_performed:false,
    counts:{recognized_trades:valid.length,converted_trades:convertedTrades.length,review_rows:reviewRows.length,blockers:blockers.length},
    blockers:[...blockers],
    rows:reviewRows.map(([position,reasons])=>{
     const item=candidateRows.find(x=>x.position===position),row=item?.row||[];
-    return {excel_row:position,ticker:String(row[codeCol]??''),transaction_type:String(row[typeCol]??''),reasons:[...reasons],status:'待確認',review_note:''};
+    return {excel_row:position,ticker:String(row[codeCol]??''),transaction_type:String(row[typeCol]??''),row_snapshot:JSON.stringify(row),reasons:[...reasons],status:'待確認',review_note:''};
    })
   };
   const reviewTable='<details><summary><strong>逐筆待確認清單：'+reviewRows.length+' 列（點開查看全部）</strong></summary>'+
    '<p class="muted">僅本機預檢，不代表已匯入或已儲存確認狀態。每列保留 Excel 原始列號。</p>'+
-   '<p><button type="button" id="exportImportReview">下載全部待確認報告（JSON）</button></p>'+
+   '<p><button type="button" id="exportImportReview">下載全部待確認報告（JSON）</button> <label>載入先前的確認報告 <input type="file" id="restoreImportReview" accept=".json,application/json"></label></p><p id="reviewRestoreStatus" class="muted"></p>'+
    '<div style="max-height:340px;overflow:auto"><table><thead><tr><th>Excel 列</th><th>代號</th><th>類型</th><th>待確認原因</th><th>人工確認</th></tr></thead><tbody>'+
    reviewRows.map(([position,reasons])=>{const item=candidateRows.find(x=>x.position===position);const row=item?.row||[];return '<tr><td>'+position+'</td><td>'+esc(row[codeCol]??'')+'</td><td>'+esc(row[typeCol]??'')+'</td><td>'+[...reasons].map(esc).join('；')+'</td><td><label><input type="checkbox" class="review-checked" data-excel-row="'+position+'"> 已確認</label></td></tr>';}).join('')+
    '</tbody></table></div></details>';
@@ -578,6 +578,35 @@ $('excelFile').addEventListener('change',async e=>{
    const record=reviewExport.rows.find(x=>x.excel_row===Number(box.dataset.excelRow));
    if(record)record.status=box.checked?'已人工確認':'待確認';
   }));
+  const reviewRestore=out.querySelector('#restoreImportReview');
+  if(reviewRestore)reviewRestore.onchange=async()=>{
+   const picked=reviewRestore.files?.[0];if(!picked)return;
+   const status=out.querySelector('#reviewRestoreStatus');
+   try{
+    if(picked.size>5000000)throw Error('確認報告超過 5MB，請檢查檔案');
+    const saved=JSON.parse(await picked.text());
+    if(saved.schema_version!==2||saved.preview_only!==true||saved.cloud_write_performed!==false||!Array.isArray(saved.rows))throw Error('不是支援的待確認報告版本');
+    if(saved.source_file!==file.name)throw Error('原始 Excel 檔名不同，為避免套用錯誤確認已拒絕');
+    if(saved.rows.length!==reviewExport.rows.length)throw Error('待確認筆數已改變，請重新核對');
+    const byRow=new Map();
+    for(const item of saved.rows){
+     if(!Number.isInteger(item.excel_row)||byRow.has(item.excel_row))throw Error('報告列號無效或重複');
+     byRow.set(item.excel_row,item);
+    }
+    for(const item of reviewExport.rows){
+     const prior=byRow.get(item.excel_row);
+     if(!prior||prior.row_snapshot!==item.row_snapshot||prior.ticker!==item.ticker||prior.transaction_type!==item.transaction_type||JSON.stringify(prior.reasons)!==JSON.stringify(item.reasons))throw Error('Excel 內容或問題原因已有變更，未套用舊確認');
+     if(prior.status!=='待確認'&&prior.status!=='已人工確認')throw Error('報告確認狀態無效');
+    }
+    for(const item of reviewExport.rows){
+     item.status=byRow.get(item.excel_row).status;
+     const box=[...out.querySelectorAll('.review-checked')].find(x=>Number(x.dataset.excelRow)===item.excel_row);
+     if(box)box.checked=item.status==='已人工確認';
+    }
+    status.textContent='已還原 '+reviewExport.rows.filter(x=>x.status==='已人工確認').length+' 筆人工確認；未寫入雲端。';
+   }catch(error){status.textContent='未還原：'+error.message;}
+   reviewRestore.value='';
+  };
   const reviewDownload=out.querySelector('#exportImportReview');
   if(reviewDownload)reviewDownload.onclick=()=>{
    const blob=new Blob([JSON.stringify(reviewExport,null,2)],{type:'application/json;charset=utf-8'});
