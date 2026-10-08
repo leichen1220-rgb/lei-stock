@@ -396,6 +396,7 @@ $('excelFile').addEventListener('change',async e=>{
    (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
    '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態另列 '+paidCostProfitRows.length+' 列（不當作買入成本異常）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
    (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
+   (paidCostProfitRows.length?'獲利類列號（僅供核對）：'+paidCostProfitRows.slice(0,18).map(x=>x.excel_row+'（'+esc(x.status)+'）').join('、')+(paidCostProfitRows.length>18?' 等':'')+'。':'')+
    (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
    '目前資料庫尚無獨立付出成本欄位，正式匯入前須完成成本保存與核帳。</p>';
   // Source workbook uses the exact labels 手續費＆交易稅 and 實領\\n股息.
