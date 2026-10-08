@@ -34,8 +34,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 (()=>{'use strict';
-const URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
-const $=id=>document.getElementById(id), client=window.supabase?.createClient(URL,KEY);
+const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
+const $=id=>document.getElementById(id), client=window.supabase?.createClient(SUPABASE_URL,KEY);
 let user=null,trades=[],tickers=[],banks=[],prices=[],editing=null;
 const fmt=n=>n==null||n===''?'':Number(n).toLocaleString('zh-TW',{maximumFractionDigits:2});
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
