@@ -594,6 +594,13 @@ $('excelFile').addEventListener('change',async e=>{
   }
   // A deterministic import plan: no database writes and no silent omissions.
   // excel_row is audit metadata, not a stock_transactions column.
+  // Surface exact source rows that are still unaccounted for. Never silently omit.
+  const unaccountedDetail=unaccounted.length?
+   '<p class="danger"><strong>未分類來源列：</strong>'+unaccounted.map(x=>'Excel 第 '+x.position+' 列').join('、')+
+   '。這些列尚未被判定為成交、等待、退款或試算區，禁止匯入。</p>':'';
+  const conversionDetail=conversionErrors.length?
+   '<p class="danger"><strong>轉換失敗來源列：</strong>'+conversionErrors.map(x=>'Excel 第 '+x.excel_row+' 列').join('、')+
+   '。請核對日期、股數、價格、費用與股息欄位。</p>':'';
   const importPlan={
    schema_version:1,source_file:file.name,generated_at:new Date().toISOString(),
    dry_run:true,cloud_write_performed:false,
@@ -627,6 +634,7 @@ $('excelFile').addEventListener('change',async e=>{
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
+   unaccountedDetail+conversionDetail+
    '<p class="muted">原始檔 SHA-256：'+(importPlan.source_sha256||'無法計算')+'；交易資料 SHA-256：'+(importPlan.payload_sha256||'無法計算')+'</p>'+
    '<p><button type="button" id="exportImportPlan">下載匯入計畫（JSON）</button></p>'+
    '<p><button type="button" id="checkImportReadiness">檢查雲端匯入環境（唯讀）</button> <span id="importReadinessResult" aria-live="polite"></span></p>'+
