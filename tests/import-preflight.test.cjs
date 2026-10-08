@@ -63,6 +63,10 @@ assert.ok(html.includes("unaccounted_rows:unaccounted.map(x=>x.position)"),'Expo
 assert.ok(html.includes('const allowedImportKeys=new Set('),'Import keys must be whitelisted');
 assert.ok(html.includes('transaction.sequence_no!==excel_row'),'Source row sequence must match Excel row');
 assert.ok(html.includes('Object.keys(transaction).some(key=>!allowedImportKeys.has(key))'),'Reject unexpected database payload keys');
+assert.ok(html.includes('id="checkCloudImport"'),'Standalone cloud readiness control exists');
+assert.ok(html.includes("client.rpc('stock_import_readiness')"),'Readiness uses Supabase RPC');
+assert.ok(html.includes("data.initial_import_allowed!==(count===0)"),'Readiness crosschecks existing transactions');
+assert.ok(html.includes("button.disabled=true"),'Readiness blocks repeated clicks during request');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
