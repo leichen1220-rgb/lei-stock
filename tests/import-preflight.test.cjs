@@ -38,6 +38,12 @@ assert.ok(html.includes('class="review-checked"'),'Review rows must support manu
 assert.ok(html.includes("record.status=box.checked?'已人工確認':'待確認'"),'Manual confirmations must be included in exported report');
 assert.ok(html.includes('cloud_write_performed:false'),'Review export must not claim cloud writes');
 assert.ok(html.includes('id="exportImportReview"'),'Review export download control must exist');
+assert.ok(html.includes('schema_version:2,source_file:file.name'),'Review report version must identify exact source');
+assert.ok(html.includes('row_snapshot:JSON.stringify(row)'),'Review restore must compare complete Excel row');
+assert.ok(html.includes("prior.row_snapshot!==item.row_snapshot"),'Changed rows must reject old confirmations');
+assert.ok(html.includes("JSON.stringify(prior.reasons)!==JSON.stringify(item.reasons)"),'Changed warnings must reject old confirmations');
+assert.ok(html.includes("saved.rows.length!==reviewExport.rows.length"),'Changed review counts must reject old confirmations');
+assert.ok(html.includes("id=\"restoreImportReview\""),'Review report upload control must exist');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
