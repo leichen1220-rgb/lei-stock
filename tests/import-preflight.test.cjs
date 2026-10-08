@@ -17,6 +17,8 @@ assert.ok(html.includes('const conversionErrors=[],convertedTrades=[];'),'Typed 
 assert.ok(html.includes('sequence_no:position'),'Import must preserve original Excel order');
 assert.ok(html.includes('dividend_gross:gross'),'Import must convert net dividends to gross');
 assert.ok(html.includes('if(conversionErrors.length)blockers.push'),'Invalid conversions must block import');
+assert.ok(html.includes('6201 與 006201 永遠是不同代號'),'Leading-zero distinction must be documented');
+assert.ok(html.includes('const normalizeTicker=v=>'),'Ticker normalizer must exist');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
