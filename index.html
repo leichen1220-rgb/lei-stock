@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.12.6 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.12.7 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -557,14 +557,14 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    rows:reviewRows.map(([position,reasons])=>{
     const item=candidateRows.find(x=>x.position===position),row=item?.row||[];
-    return {excel_row:position,ticker:String(row[codeCol]??''),transaction_type:String(row[typeCol]??''),reasons:[...reasons],status:'待確認'};
+    return {excel_row:position,ticker:String(row[codeCol]??''),transaction_type:String(row[typeCol]??''),reasons:[...reasons],status:'待確認',review_note:''};
    })
   };
   const reviewTable='<details><summary><strong>逐筆待確認清單：'+reviewRows.length+' 列（點開查看全部）</strong></summary>'+
    '<p class="muted">僅本機預檢，不代表已匯入或已儲存確認狀態。每列保留 Excel 原始列號。</p>'+
    '<p><button type="button" id="exportImportReview">下載全部待確認報告（JSON）</button></p>'+
-   '<div style="max-height:340px;overflow:auto"><table><thead><tr><th>Excel 列</th><th>代號</th><th>類型</th><th>待確認原因</th></tr></thead><tbody>'+
-   reviewRows.map(([position,reasons])=>{const item=candidateRows.find(x=>x.position===position);const row=item?.row||[];return '<tr><td>'+position+'</td><td>'+esc(row[codeCol]??'')+'</td><td>'+esc(row[typeCol]??'')+'</td><td>'+[...reasons].map(esc).join('；')+'</td></tr>';}).join('')+
+   '<div style="max-height:340px;overflow:auto"><table><thead><tr><th>Excel 列</th><th>代號</th><th>類型</th><th>待確認原因</th><th>人工確認</th></tr></thead><tbody>'+
+   reviewRows.map(([position,reasons])=>{const item=candidateRows.find(x=>x.position===position);const row=item?.row||[];return '<tr><td>'+position+'</td><td>'+esc(row[codeCol]??'')+'</td><td>'+esc(row[typeCol]??'')+'</td><td>'+[...reasons].map(esc).join('；')+'</td><td><label><input type="checkbox" class="review-checked" data-excel-row="'+position+'"> 已確認</label></td></tr>';}).join('')+
    '</tbody></table></div></details>';
   const gateSummary='<section class="'+(blockers.length?'danger':'')+'"><strong>正式匯入安全檢查：'+(blockers.length?'尚未通過':'預檢無阻擋項目')+'</strong>'+
    (blockers.length?'<p>'+blockers.map(esc).join('；')+'</p>':'<p>基本欄位預檢完成，但仍需完整資料轉換、寫入與備份還原驗收。</p>')+
@@ -572,6 +572,12 @@ $('excelFile').addEventListener('change',async e=>{
   const mask=r=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
   const suspectLines=needsReview.slice(0,12).map(({row,position})=>'第 '+position+' 列：代號 '+esc(row[codeCol])+'；日期 '+esc(row[dateCol])+'；交易別 '+esc(row[typeCol]||'（空白）')).join('<p>','</p>');
   out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；非交易試算區候選：'+footerRows.length+' 列；仍待確認：'+needsReview.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(needsReview.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+nameSummary+mappingCoverage+conflictBreakdown+exactCodeExample+codeAudit+unresolvedAudit+quotePreview+duplicatePreview+dateAuditPreview+financeAudit+dividendConversionPreview+conversionPreview+pendingPreview+reviewTable+gateSummary+'<p>只有交易別符合三種且通過後續日期、欄位核對的紀錄才可正式匯入。底部試算區不會作為交易上傳；此階段仍僅預覽。</p>';
+  // Confirmations remain local to this preview; exported JSON preserves the
+  // review decision. No automatic deduplication or cloud persistence occurs.
+  out.querySelectorAll('.review-checked').forEach(box=>box.addEventListener('change',()=>{
+   const record=reviewExport.rows.find(x=>x.excel_row===Number(box.dataset.excelRow));
+   if(record)record.status=box.checked?'已人工確認':'待確認';
+  }));
   const reviewDownload=out.querySelector('#exportImportReview');
   if(reviewDownload)reviewDownload.onclick=()=>{
    const blob=new Blob([JSON.stringify(reviewExport,null,2)],{type:'application/json;charset=utf-8'});
