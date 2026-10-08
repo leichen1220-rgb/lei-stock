@@ -38,4 +38,10 @@ assert.ok(!/truncate\\s+public\\.stock_transactions/i.test(commitSql),'Commit mu
 assert.ok(commitSql.includes("then raise exception 'Invalid staged financial values'"),'Reject invalid financial values');
 assert.ok(commitSql.includes("([.][0-9]+)?"),'Numeric regex should use literal dot class');
 assert.ok(!commitSql.includes('\\\\.'),'Do not use double-backslash regex escapes in PostgreSQL');
+assert.ok(sql.includes("(r.value->'transaction' ? 'owner_id')"),'Reject caller-injected owner IDs');
+assert.ok(sql.includes("(r.value->'transaction' ? 'id')"),'Reject caller-injected row IDs');
+assert.ok(sql.includes("!~ '^[0-9A-Z]{2,12}
+"),'Require exact normalized stock codes');
+assert.ok(sql.includes("!~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}
+"),'Require ISO date format');
 console.log('PASS: SQL staging and commit static safety checks (database execution not tested)');
