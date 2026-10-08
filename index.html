@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#55bf91}.calc-metric.loss{border-color:#ee8b91}.calc-metric.profit strong{color:#80dbb3}.calc-metric.loss strong{color:#ff9b9f}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.4 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.5 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -24,7 +24,7 @@
 <label class="field" data-types="現金股息">預計入帳日<input name="payment_date" type="date"></label>
 <label class="field" data-types="現金股息">入帳狀態<select name="payment_confirmed"><option value="false">待確認</option><option value="true">已確認</option></select></label>
 <label class="field">備註<input name="note" maxlength="500"></label></div>
-<p class="actions"><button type="submit" class="primary" id="save">儲存交易</button><button type="button" id="reset">取消編輯</button><span class="muted">僅顯示該交易別適用欄位；歷史紀錄可點「編輯」。</span></p></form></div>
+<p class="actions"><button type="submit" class="primary" id="save">儲存交易</button><button type="button" id="resetTradeButton">取消編輯</button><span class="muted">僅顯示該交易別適用欄位；歷史紀錄可點「編輯」。</span></p></form></div>
 <div class="card"><div class="actions"><h2>交易明細</h2><input id="filter" placeholder="搜尋代號／備註"><span id="tradecount" class="muted"></span></div><div class="scroll"><table><thead><tr><th>日期</th><th>代號</th><th>名稱</th><th>交易別</th><th>股數</th><th>成交價</th><th>費用</th><th>股息</th><th>匯費</th><th>入帳日</th><th>確認</th><th>備註</th><th></th></tr></thead><tbody id="tradebody"></tbody></table></div></div></section>
 <section id="overview" class="page hidden"><div class="card"><h2>持股總覽</h2><p class="muted">股數依交易順序累計；成本暫不提供，待與原 Excel 公式核對後啟用。收盤價為手動登錄，不冒充即時行情。</p><div class="grid" id="stats"></div><div class="scroll"><table><thead><tr><th>代號</th><th>名稱</th><th>股數</th><th>累計淨股息</th><th>收盤價</th><th>報價日期</th><th>市值</th><th></th></tr></thead><tbody id="holdingbody"></tbody></table></div></div></section>
 <section id="dividends" class="page hidden"><div class="card"><h2>股息入帳待確認</h2><p class="muted">預計入帳日的隔天開始提醒；確認入帳與匯費為不同欄位。提醒僅在開啟網站時顯示。</p><div id="reminders"></div></div></section>
@@ -65,8 +65,8 @@ async function login(signup){if(!client)return msg('Supabase 函式庫載入失�
 $('signin').onclick=()=>login(false);$('signup').onclick=()=>login(true);$('logout').onclick=()=>client.auth.signOut();
 function fields(){const type=document.querySelector('[name=transaction_type]').value;document.querySelectorAll('[data-types]').forEach(x=>{const ok=x.dataset.types.split(',').includes(type);x.classList.toggle('hidden',!ok);if(!ok)x.querySelector('input')?.setAttribute('disabled','');else x.querySelector('input')?.removeAttribute('disabled');});}
 document.querySelector('[name=transaction_type]').onchange=fields;
-function reset(){editing=null;$('tradeform').reset();$('tradeform').elements.trade_date.value=today();$('formtitle').textContent='新增交易';fields();}
-$('reset').onclick=reset;
+function reset(){editing=null;HTMLFormElement.prototype.reset.call($('tradeform'));$('tradeform').elements.trade_date.value=today();$('formtitle').textContent='新增交易';fields();}
+$('resetTradeButton').onclick=reset;
 $('tradeform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements, type=f.transaction_type.value,ticker=f.ticker.value.trim().toUpperCase();const obj={trade_date:f.trade_date.value,ticker,transaction_type:type,quantity:type==='現金股息'?null:val(f.quantity.value),price:type==='現股'?val(f.price.value):null,trade_fees:type==='現股'?val(f.trade_fees.value):null,dividend_gross:type==='現金股息'?val(f.dividend_gross.value):null,wire_fee:type==='現金股息'?val(f.wire_fee.value):null,payment_date:type==='現金股息'?(f.payment_date.value||null):null,payment_confirmed:type==='現金股息'&&f.payment_confirmed.value==='true',note:f.note.value.trim()||null};
 if(!ticker||!obj.trade_date)return msg('日期和代號必填',true);
 if(type==='現股'&&(!obj.quantity||!(obj.price>0)))return msg('現股需填非零股數與正數成交價',true);
