@@ -33,7 +33,7 @@
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
 <div class="card"><h2>每日收盤價</h2><p class="muted">僅使用已存入資料庫的每日收盤價；不追蹤盤中即時報價。尚未接通每日收盤價更新服務，缺價會顯示「—」，不會假裝是最新價格。</p><div id="priceStatus" class="muted"></div></div>
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
-<div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div>
+<div class="card"><h2>雲端匯入環境檢查</h2><p class="muted">已安裝 SQL 後，可先確認登入帳號的交易筆數與匯入資格。只讀取資料，不會匯入 Excel，也不會寫入交易。</p><button type="button" id="checkCloudImport">檢查 Supabase 連線（唯讀）</button><p id="cloudImportResult" class="muted" aria-live="polite">尚未檢查</p></div><div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div>
 <div style="margin-top:16px;border-top:1px solid #394159;padding-top:16px">
 <h3>備份還原預檢（不寫入雲端）</h3>
 <p class="muted">可檢查本系統產生的 ZIP 或 JSON 備份：驗證檔案格式、筆數、交易必要欄位及重複 ID。此功能只讀取檔案，不會新增、刪除或覆蓋任何資料。</p>
@@ -61,6 +61,26 @@ const val=(v)=>v===''||v==null?null:Number(v);
 const nameOf=t=>tickers.find(x=>x.ticker===t)?.display_name||'—';
 function show(page){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('hidden',x.id!==page));document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>show(b.dataset.page));
+async function checkStockImportReadiness(button,result){
+ if(!user||!cloudDataReady){result.textContent='請先登入並完成雲端同步';return;}
+ button.disabled=true;result.textContent='正在檢查 Supabase…';
+ try{
+  const {data,error}=await client.rpc('stock_import_readiness');
+  if(error)throw error;
+  if(!data||data.schema_version!==1||data.writes_performed!==false)
+   throw new Error('資料庫驗收回傳格式不符');
+  const count=Number(data.account_transactions),staged=Number(data.staged_batches);
+  if(!Number.isSafeInteger(count)||count<0||!Number.isSafeInteger(staged)||staged<0)
+   throw new Error('資料庫筆數不正確');
+  if(data.initial_import_allowed!==(count===0))
+   throw new Error('匯入資格與實際交易筆數不一致');
+  result.textContent='Supabase 連線成功：現有交易 '+count+' 筆，暫存批次 '+staged+
+   ' 筆。'+(count===0?'帳本目前為空，可進行後續匯入驗收。':'已有交易，禁止初次匯入以免重複。')+'本次沒有寫入資料。';
+ }catch(err){
+  result.textContent='雲端驗收未通過：'+(err?.message||String(err))+'。沒有寫入資料。';
+ }finally{button.disabled=false;}
+}
+$('checkCloudImport').onclick=()=>checkStockImportReadiness($('checkCloudImport'),$('cloudImportResult'));
 function authUI(){ $('authLoading').classList.add('hidden');$('auth').classList.toggle('hidden',!!user);$('app').classList.toggle('hidden',!user);$('logout').classList.toggle('hidden',!user);$('who').textContent=user?.email||'未登入';}
 async function call(table,fn){const {data,error}=await fn(client.from(table));if(error)throw error;return data}
 async function fetchAll(table,sortColumns=[]){
@@ -669,25 +689,8 @@ $('excelFile').addEventListener('change',async e=>{
    reviewRestore.value='';
   };
   const readinessButton=out.querySelector('#checkImportReadiness');
-  if(readinessButton)readinessButton.onclick=async()=>{
-   const result=out.querySelector('#importReadinessResult');
-   if(!user||!cloudDataReady){result.textContent='請先登入並完成雲端同步';return;}
-   readinessButton.disabled=true;result.textContent='正在讀取雲端匯入狀態…';
-   try{
-    const {data,error}=await client.rpc('stock_import_readiness');
-    if(error)throw error;
-    if(!data||data.schema_version!==1||data.writes_performed!==false)
-     throw new Error('資料庫回傳格式與預期不符');
-    const count=Number(data.account_transactions);
-    if(!Number.isSafeInteger(count)||count<0)throw new Error('交易筆數無效');
-    result.textContent='資料庫連線正常；現有交易 '+count+' 筆；暫存批次 '+
-     Number(data.staged_batches)+' 筆；'+(data.initial_import_allowed?'符合空帳本匯入條件':'已有交易，初次匯入禁止執行')+
-     '。本次未寫入資料。';
-   }catch(err){
-    result.textContent='尚未通過雲端驗收：'+(err?.message||String(err))+
-     '。請先完成 SQL 02、03、05 的部署與檢查。';
-   }finally{readinessButton.disabled=false;}
-  };
+  if(readinessButton)readinessButton.onclick=()=>checkStockImportReadiness(
+   readinessButton,out.querySelector('#importReadinessResult'));
   const planDownload=out.querySelector('#exportImportPlan');
   if(planDownload)planDownload.onclick=()=>{
    const blob=new Blob([JSON.stringify(importPlan,null,2)],{type:'application/json;charset=utf-8'});
