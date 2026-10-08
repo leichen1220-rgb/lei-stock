@@ -48,4 +48,9 @@ assert.equal(x.state.valid,false,'missing fees must not be silently treated as z
 x=run([{...buy,trade_fees:0}]);
 assert.equal(x.state.valid,true,'explicit zero fees are allowed');
 assert.equal(x.state.cost,5000);
-console.log('PASS: 12 cost ledger cases (sale, stock dividend, oversell, missing price, cash dividend, chronological sorting, multiple buys, full liquidation, ticker separation, empty price)');
+x=run([buy,{ticker:'2330',trade_date:'2026-01-02',transaction_type:'股票股利',quantity:20,trade_fees:0}]);
+assert.equal(x.state.valid,true,'stock dividend with explicit zero fee should pass');
+assert.equal(x.state.quantity,120);
+x=run([buy,{ticker:'2330',trade_date:'2026-01-02',transaction_type:'股票股利',quantity:20,trade_fees:5}]);
+assert.equal(x.state.valid,false,'stock dividend with nonzero trading fee needs manual review');
+console.log('PASS: 14 cost ledger cases (sale, stock dividend, oversell, missing price, cash dividend, chronological sorting, multiple buys, full liquidation, ticker separation, empty price)');
