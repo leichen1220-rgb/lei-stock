@@ -311,7 +311,19 @@ $('excelFile').addEventListener('change',async e=>{
   // buy/sell may have valid type, quantity and target price but is NOT executed.
   const waitingRows=candidateRows.filter(({row})=>statusCol>=0&&String(row[statusCol]??'').trim()==='等待');
   const waitingSet=new Set(waitingRows);
-  const refundRows=candidateRows.filter(item=>!waitingSet.has(item)&&String(item.row[typeCol]??'').trim()==='增資退款');
+  // The user confirmed row 106 / 9105 is a capital refund in this exact
+  // original workbook. Scope the exception to its SHA-256 and source identity:
+  // editing or inserting Excel rows invalidates it rather than silently
+  // misclassifying a different transaction.
+  const originalWorkbookSha='44b6c1f5f8574ab1f5e0ddc266509db5bb2b6df92b8227e7c45089d7d8ab1b59';
+  const workbookSha=globalThis.crypto?.subtle?
+   [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
+    .map(v=>v.toString(16).padStart(2,'0')).join(''):null;
+  const verifiedRefund=item=>workbookSha===originalWorkbookSha&&
+   item.position===106&&normalizeTicker(item.row[codeCol])==='9105'&&
+   String(item.row[typeCol]??'').trim()==='現股';
+  const refundRows=candidateRows.filter(item=>!waitingSet.has(item)&&
+   (String(item.row[typeCol]??'').trim()==='增資退款'||verifiedRefund(item)));
   const specialRows=new Set([...waitingRows,...refundRows]);
   const executableRows=candidateRows.filter(item=>!specialRows.has(item));
   const missingCodeRows=executableRows.filter(({row})=>!String(row[codeCol]??'').trim()&&validTypes.has(String(row[typeCol]??'').trim()));
@@ -321,9 +333,11 @@ $('excelFile').addEventListener('change',async e=>{
   const footerRows=suspect.filter(({row})=>!String(row[dateCol]??'').trim());
   const needsReview=suspect.filter(({row})=>String(row[dateCol]??'').trim());
   const statusWarning=statusCol<0?'<p class="danger">找不到「狀態」欄：目前無法確認哪些紀錄尚未成交，禁止正式匯入。</p>':'';
+  const verifiedRefundCount=refundRows.filter(verifiedRefund).length;
   const pendingPreview='<section><strong>非成交資料分類（不納入持股）</strong>'+
    '<p>等待中的交易計畫：'+waitingRows.length+' 列'+(waitingRows.length?'（Excel 第 '+waitingRows.slice(0,15).map(x=>x.position).join('、')+' 列）':'')+'；增資退款：'+refundRows.length+' 列'+(refundRows.length?'（第 '+refundRows.map(x=>x.position).join('、')+' 列）':'')+'。</p>'+
    statusWarning+
+   (verifiedRefundCount?'<p>已依原始檔 SHA-256、代號與列號核對：Excel 第 106 列（9105）為妳確認的增資退款，已從成交候選排除。</p>':'')+
    '<p class="muted">等待不代表成交，預設價與數量僅供計畫參考；增資退款應記錄為資金異動，不能當作股票買賣或股息。兩者都尚未寫入雲端。</p></section>';
 
   // Audit optional financial fields without inventing missing values.
