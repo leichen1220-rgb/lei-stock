@@ -33,7 +33,9 @@ assert.ok(html.includes('Excel 原始列號'),'Original row reference must remai
 assert.ok(html.includes('僅本機預檢，不代表已匯入'),'Review must not pretend to be persisted');
 assert.ok(html.includes('const reviewExport={'),'Review export must be built from full review list');
 assert.ok(html.includes('rows:reviewRows.map'),'Review export must include every flagged row');
-assert.ok(html.includes("status:'待確認'"),'Review export must preserve pending status');
+assert.ok(html.includes("status:'待確認',review_note:''"),'Review export must preserve pending status');
+assert.ok(html.includes('class="review-checked"'),'Review rows must support manual confirmation');
+assert.ok(html.includes("record.status=box.checked?'已人工確認':'待確認'"),'Manual confirmations must be included in exported report');
 assert.ok(html.includes('cloud_write_performed:false'),'Review export must not claim cloud writes');
 assert.ok(html.includes('id="exportImportReview"'),'Review export download control must exist');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
