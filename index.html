@@ -747,13 +747,12 @@ $('excelFile').addEventListener('change',async e=>{
    Object.keys(transaction).some(key=>!allowedImportKeys.has(key))||
    transaction.sequence_no!==excel_row);
   if(payloadKeyErrors.length)blockers.push('匯入欄位或原始列號不一致：'+payloadKeyErrors.length+' 筆');
-  importPlan.blockers=[...blockers];
-  importPlan.blockers=[...blockers];
-  importPlan.production_import_blockers=[...blockers,'付出成本尚未存入正式交易欄位，需先完成成本核帳'];
   // Stage is deliberately blocked until costs can be retained end-to-end.
   // The reviewed value must not be silently dropped when staging succeeds.
   if(reviewedPaidCostRows.length&&importPlan.rows.some(x=>x.excel_row===558))
    blockers.push('第 558 列付出成本 5,512 元尚無雲端欄位可保存；禁止暫存直到成本欄位完成');
+  importPlan.blockers=[...blockers];
+  importPlan.production_import_blockers=[...blockers,'付出成本尚未存入正式交易欄位，需先完成成本核帳'];
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
