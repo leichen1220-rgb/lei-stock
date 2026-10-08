@@ -24,3 +24,8 @@ console.log('PASS: paid-cost migration static invariants (Supabase execution not
 
 assert.ok(html.includes("['paid_cost','付出成本']"),'Excel ZIP backup must retain paid cost');
 assert.ok(html.includes("'trade_fees','paid_cost','dividend_gross'"),'CSV backup must retain paid cost');
+
+assert.ok(sql.includes('do $constraint_guard$'),'Repeat migration must preserve existing cost constraint');
+assert.ok(!sql.includes('drop constraint if exists stock_transactions_paid_cost_nonnegative'),'Do not drop existing cost constraint');
+assert.ok(sql.includes("Previously committed batch row count mismatch"),'Idempotent commit must verify requested row count');
+assert.ok(sql.includes("s.transaction_data->>'transaction_type' <> '現股'"),'Reject paid cost on non-stock trades');
