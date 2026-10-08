@@ -378,12 +378,12 @@ $('excelFile').addEventListener('change',async e=>{
    const raw=paidCostCol>=0?row[paidCostCol]:null;
    const sourceText=String(raw??'').trim();
    const status=statusCol>=0?String(row[statusCol]??'').trim():'';
-   if(profitStatuses.has(status)){
+   const parsed=paidCostNumberKey(raw);
+   if(profitStatuses.has(status)&&parsed===null){
     paidCostProfitRows.push({excel_row:position,status,source_value:sourceText});
     continue;
    }
    if(!sourceText)continue;
-   const parsed=paidCostNumberKey(raw);
    if(parsed===null||!Number.isFinite(Number(parsed))||Number(parsed)<0){
     paidCostInvalidRows.push({excel_row:position,status,source_value:sourceText});
    }else{
@@ -394,7 +394,7 @@ $('excelFile').addEventListener('change',async e=>{
   }
   const paidCostAudit='<p>付出成本獨立核對：'+
    (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
-   '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態另列 '+paidCostProfitRows.length+' 列（不當作買入成本異常）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
+   '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態的非數字或空白成本另列 '+paidCostProfitRows.length+' 列（數字成本仍保留核對）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
    (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
    (paidCostProfitRows.length?'獲利類列號（僅供核對）：'+paidCostProfitRows.slice(0,18).map(x=>x.excel_row+'（'+esc(x.status)+'）').join('、')+(paidCostProfitRows.length>18?' 等':'')+'。':'')+
    (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
@@ -651,8 +651,13 @@ $('excelFile').addEventListener('change',async e=>{
   for(const position of ambiguousRows)flag(position,'無法建立查重特徵');
   for(const item of needsReview)flag(item.position,'交易類型待確認');
   for(const item of missingCodeRows)flag(item.position,'交易資料不完整');
-  for(const item of waitingRows)flag(item.position,'等待：尚未成交，另行保存');
-  for(const item of refundRows)flag(item.position,'增資退款：資金異動，另行保存');
+  // Non-trade rows are classified and reported separately. Do not make a
+  // correctly excluded refund or pending order look like an import error.
+  const excludedInfoRows=[
+   ...waitingRows.map(x=>({excel_row:x.position,kind:'等待計畫'})),
+   ...refundRows.map(x=>({excel_row:x.position,kind:'增資退款'})),
+   ...confirmedDuplicateRows.map(x=>({excel_row:x.position,kind:'已確認重複'}))
+  ].sort((a,b)=>a.excel_row-b.excel_row);
   const reviewRows=[...reviewByRow].sort((a,b)=>a[0]-b[0]);
   // Every populated source row must be accounted for exactly once. Footer
   // calculations are explicitly excluded, never silently discarded.
@@ -676,7 +681,7 @@ $('excelFile').addEventListener('change',async e=>{
   // excel_row is audit metadata, not a stock_transactions column.
   // Surface exact source rows that are still unaccounted for. Never silently omit.
   const unaccountedDetail=unaccounted.length?
-   '<p class="danger"><strong>未分類來源列：</strong>'+unaccounted.map(x=>'Excel 第 '+x.position+' 列').join('、')+
+   '<p class="danger"><strong>未分類來源列：</strong>'+unaccounted.map(x=>'Excel 第 '+x.position+' 列（'+esc(x.row.slice(0,6).map(v=>String(v??'').slice(0,35)).join(' / '))+'）').join('、')+
    '。這些列尚未被判定為成交、等待、退款或試算區，禁止匯入。</p>':'';
   const conversionDetail=conversionErrors.length?
    '<p class="danger"><strong>轉換失敗來源列：</strong>'+conversionErrors.map(x=>'Excel 第 '+x.position+' 列（'+x.errors.join('、')+'）').join('、')+
@@ -688,6 +693,7 @@ $('excelFile').addEventListener('change',async e=>{
     pending:waitingRows.length,refunds:refundRows.length,unconverted:conversionErrors.length},
    blockers:[...blockers],
    source_row_count:sourceRows.length,
+   excluded_info_rows:excludedInfoRows,
    disposition:importDisposition,
    paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
    review_decisions:originalReviewMatches?{
@@ -733,12 +739,13 @@ $('excelFile').addEventListener('change',async e=>{
    preview_only:true,cloud_write_performed:false,
    counts:{recognized_trades:valid.length,converted_trades:convertedTrades.length,review_rows:reviewRows.length,blockers:blockers.length},
    blockers:[...blockers],
+   excluded_info_rows:excludedInfoRows,
    rows:reviewRows.map(([position,reasons])=>{
     const item=candidateRows.find(x=>x.position===position),row=item?.row||[];
     return {excel_row:position,ticker:String(row[codeCol]??''),transaction_type:String(row[typeCol]??''),row_snapshot:JSON.stringify(row),reasons:[...reasons],status:'待確認',review_note:''};
    })
   };
-  const reviewTable='<details><summary><strong>逐筆待確認清單：'+reviewRows.length+' 列（點開查看全部）</strong></summary>'+
+  const reviewTable='<details><summary><strong>逐筆待確認清單：'+reviewRows.length+' 列（不含已分類排除 '+excludedInfoRows.length+' 列；點開查看全部）</strong></summary>'+
    '<p class="muted">僅本機預檢，不代表已匯入或已儲存確認狀態。每列保留 Excel 原始列號。</p>'+
    '<p><button type="button" id="exportImportReview">下載全部待確認報告（JSON）</button> <label>載入先前的確認報告 <input type="file" id="restoreImportReview" accept=".json,application/json"></label></p><p id="reviewRestoreStatus" class="muted"></p>'+
    '<div style="max-height:340px;overflow:auto"><table><thead><tr><th>Excel 列</th><th>代號</th><th>類型</th><th>待確認原因</th><th>人工確認</th></tr></thead><tbody>'+
