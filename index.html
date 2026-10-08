@@ -308,6 +308,7 @@ $('excelFile').addEventListener('change',async e=>{
   const workbookSha=globalThis.crypto?.subtle?
    [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
     .map(v=>v.toString(16).padStart(2,'0')).join(''):null;
+  const normalizeTicker=v=>String(v??'').trim().replace(/^[\s\u200B-\u200D\uFEFF]+|[\s\u200B-\u200D\uFEFF]+$/g,'').toUpperCase();
   const validTypes=new Set(['現股','現金股息','股票股利']);
   const statusCol=idx('狀態','交易狀態','成交狀態');
   const candidateRows=rows.slice(headerIndex+1).map(({row,excelRow})=>({row,position:excelRow}));
@@ -489,7 +490,6 @@ $('excelFile').addEventListener('change',async e=>{
   const nameSheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
   // Stock-code worksheet is authoritative. Normalize invisible/full-width whitespace
   // and case, but never remove meaningful digits or leading zeros.
-  const normalizeTicker=v=>String(v??'').trim().replace(/^[\s\u200B-\u200D\uFEFF]+|[\s\u200B-\u200D\uFEFF]+$/g,'').toUpperCase();
   const normalizeDisplayName=v=>String(v??'').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]/g,'').trim();
   const existingNames=new Map(tickers.map(t=>[normalizeTicker(t.ticker),normalizeDisplayName(t.display_name)]));
   const proposedNames=new Map(),nameIssues=[],internalConflictCodes=new Set(),cloudConflictCodes=new Set();
