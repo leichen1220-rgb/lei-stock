@@ -357,7 +357,7 @@ $('excelFile').addEventListener('change',async e=>{
   const reviewedCorrectionsPreview=originalReviewMatches?
    '<p><strong>已核實原始檔修正：</strong>第 307 列成交價使用 20.1（僅匯入資料，不修改 Excel）；'+
    (verifiedDuplicatePair?'第 554、557 列為重複，保留 554、排除 557；':'第 554、557 列待驗證；')+
-   '第 558 列付出成本應為 5,512 元，尚待對應欄位確認，不會擅自當作成交價或費用。</p>':'';
+   '第 558 列（2327）付出成本確認為 5,512 元；已納入匯入核對資料，待資料庫成本欄位建置後才能正式保存。</p>':'';
   const pendingPreview='<section><strong>非成交資料分類（不納入持股）</strong>'+
    '<p>等待中的交易計畫：'+waitingRows.length+' 列'+(waitingRows.length?'（Excel 第 '+waitingRows.slice(0,15).map(x=>x.position).join('、')+' 列）':'')+'；增資退款：'+refundRows.length+' 列'+(refundRows.length?'（第 '+refundRows.map(x=>x.position).join('、')+' 列）':'')+'。</p>'+
    statusWarning+
@@ -376,7 +376,7 @@ $('excelFile').addEventListener('change',async e=>{
   const row558=candidateRows.find(item=>item.position===558);
   const paidCost558Raw=paidCostCol>=0&&row558?row558.row[paidCostCol]:null;
   const paidCost558Source=paidCost558Raw===null?null:paidCostNumberKey(paidCost558Raw);
-  const paidCost558Review=originalReviewMatches&&row558&&normalizeTicker(row558.row[codeCol])==='6175'?{excel_row:558,ticker:'6175',confirmed_paid_cost:5512,source_column:paidCostCol>=0?header[paidCostCol]:null,source_value:paidCost558Source===null?String(paidCost558Raw??''):Number(paidCost558Source),applied_to_transaction:false}:null;
+  const paidCost558Review=originalReviewMatches&&row558&&normalizeTicker(row558.row[codeCol])==='2327'?{excel_row:558,ticker:'2327',confirmed_paid_cost:5512,source_column:paidCostCol>=0?header[paidCostCol]:null,source_value:paidCost558Source===null?String(paidCost558Raw??''):Number(paidCost558Source),applied_to_transaction:false}:null;
   // Record every source paid-cost cell by original Excel row, not only the
   // manually reviewed row. These values are audit metadata, not trade prices.
   // Profit / intraday-profit rows may display calculated profit text in the
@@ -652,6 +652,8 @@ $('excelFile').addEventListener('change',async e=>{
   const flag=(position,reason)=>{if(!reviewByRow.has(position))reviewByRow.set(position,new Set());reviewByRow.get(position).add(reason);};
   for(const item of conversionErrors)for(const reason of item.errors)flag(item.position,'轉換：'+reason);
   for(const item of paidCostInvalidRows)flag(item.excel_row,'付出成本：無法解析原始值 '+String(item.source_value).slice(0,50));
+  if(originalReviewMatches&&!paidCost558Review)blockers.push('原始 Excel 第 558 列（2327）身分無法核實，不能套用 5,512 元成本修正');
+  if(paidCost558Review&&paidCostCol<0)blockers.push('第 558 列已確認成本 5,512 元，但原始付出成本欄無法辨識');
   if(paidCostCol<0)blockers.push('無法辨識原始付出成本欄，不能核對買賣成本');
   if(paidCostInvalidRows.length)blockers.push('有 '+paidCostInvalidRows.length+' 筆非獲利狀態現股付出成本來源無法解析，須逐列核對');
   for(const item of missingCodeRows)flag(item.position,'缺股票代號');
@@ -714,7 +716,7 @@ $('excelFile').addEventListener('change',async e=>{
    review_decisions:originalReviewMatches?{
     price_override:{excel_row:307,ticker:'2002',price:20.1},
     confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
-    cost_review:{excel_row:558,paid_cost:5512,applied:false}
+    cost_review:paidCost558Review?{excel_row:558,ticker:'2327',paid_cost:5512,applied_to_audit:true,applied_to_cloud:false}:null
    }:null,
    unaccounted_rows:unaccounted.map(x=>x.position),
    rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))
