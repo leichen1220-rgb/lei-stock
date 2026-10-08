@@ -7,9 +7,20 @@
 -- All operations run in one PostgreSQL transaction; errors roll back the whole call.
 begin;
 alter table public.stock_transactions add column if not exists paid_cost numeric;
-alter table public.stock_transactions drop constraint if exists stock_transactions_paid_cost_nonnegative;
-alter table public.stock_transactions add constraint stock_transactions_paid_cost_nonnegative
- check (paid_cost is null or paid_cost >= 0);
+-- Keep an existing constraint intact if migration is run more than once.
+do $constraint_guard$
+begin
+ if not exists (
+   select 1 from pg_catalog.pg_constraint
+   where conrelid='public.stock_transactions'::pg_catalog.regclass
+     and conname='stock_transactions_paid_cost_nonnegative'
+ ) then
+   alter table public.stock_transactions
+     add constraint stock_transactions_paid_cost_nonnegative
+     check (paid_cost is null or paid_cost >= 0);
+ end if;
+end
+$constraint_guard$;
 create or replace function public.stock_commit_import(p_batch_id uuid, p_expected_rows integer)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -26,6 +37,9 @@ begin
  where id=p_batch_id and owner_id=v_owner for update;
  if not found then raise exception 'Batch not found'; end if;
  if v_batch.state='committed' then
+   if v_batch.row_count <> p_expected_rows then
+     raise exception 'Previously committed batch row count mismatch';
+   end if;
    return jsonb_build_object('batch_id',p_batch_id,'state','committed',
     'rows',v_batch.row_count,'reused',true);
  end if;
@@ -47,8 +61,9 @@ begin
    or (s.transaction_data->>'ticker') !~ '^[0-9A-Z]{2,12}$'
    or (s.transaction_data->>'trade_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
    or (s.transaction_data->>'transaction_type') not in ('現股','現金股息','股票股利')
-   or (s.transaction_data->>'paid_cost' is not null and
-       coalesce(s.transaction_data->>'paid_cost','') !~ '^[0-9]+([.][0-9]+)?$')
+   or (s.transaction_data->>'paid_cost' is not null and (
+       s.transaction_data->>'transaction_type' <> '現股'
+       or coalesce(s.transaction_data->>'paid_cost','') !~ '^[0-9]+([.][0-9]+)?$'))
    or (s.transaction_data->>'transaction_type'='現股' and (
       coalesce(s.transaction_data->>'quantity','') !~ '^-?[0-9]+([.][0-9]+)?$'
       or coalesce(s.transaction_data->>'price','') !~ '^[0-9]+([.][0-9]+)?$'
