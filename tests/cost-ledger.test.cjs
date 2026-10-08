@@ -3,9 +3,9 @@
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
-const start=html.indexOf('function estimateCostLedger(){');
+const start=html.indexOf('function orderedTransactions(items){');
 const end=html.indexOf('\nfunction renderOverview()',start);
-assert.ok(start>=0&&end>start,'cost ledger function must exist');
+assert.ok(start>=0&&end>start,'chronological ordering and cost ledger functions must exist');
 const source=html.slice(start,end);
 const calculate=new Function('trades',source+';return estimateCostLedger()');
 function run(trades,ticker='2330'){const result=calculate(trades);return {state:result.states.get(ticker),warnings:result.warnings};}
