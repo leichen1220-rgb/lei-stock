@@ -304,6 +304,10 @@ $('excelFile').addEventListener('change',async e=>{
   const header=rows[headerIndex].row.map(normalized), idx=(...names)=>header.findIndex(h=>names.some(n=>h===normalized(n)));
   const codeCol=idx('輸入'),dateCol=idx('成交/除權息日','成交/除權息日期','成交除權息日'),typeCol=idx('交易別'),sharesCol=idx('股數'),priceCol=idx('成交價');
   if([codeCol,dateCol,typeCol,sharesCol,priceCol].some(c=>c<0)){out.textContent='缺少必要欄位（代號、日期、交易別、股數或成交價），已停止預覽；沒有上傳資料。';return;}
+  const originalWorkbookSha='44b6c1f5f8574ab1f5e0ddc266509db5bb2b6df92b8227e7c45089d7d8ab1b59';
+  const workbookSha=globalThis.crypto?.subtle?
+   [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
+    .map(v=>v.toString(16).padStart(2,'0')).join(''):null;
   const validTypes=new Set(['現股','現金股息','股票股利']);
   const statusCol=idx('狀態','交易狀態','成交狀態');
   const candidateRows=rows.slice(headerIndex+1).map(({row,excelRow})=>({row,position:excelRow}));
@@ -315,10 +319,6 @@ $('excelFile').addEventListener('change',async e=>{
   // original workbook. Scope the exception to its SHA-256 and source identity:
   // editing or inserting Excel rows invalidates it rather than silently
   // misclassifying a different transaction.
-  const originalWorkbookSha='44b6c1f5f8574ab1f5e0ddc266509db5bb2b6df92b8227e7c45089d7d8ab1b59';
-  const workbookSha=globalThis.crypto?.subtle?
-   [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
-    .map(v=>v.toString(16).padStart(2,'0')).join(''):null;
   const verifiedRefund=item=>workbookSha===originalWorkbookSha&&
    item.position===106&&normalizeTicker(item.row[codeCol])==='9105'&&
    String(item.row[typeCol]??'').trim()==='現股';
