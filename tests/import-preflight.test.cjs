@@ -35,7 +35,7 @@ assert.ok(html.includes('const reviewExport={'),'Review export must be built fro
 assert.ok(html.includes('rows:reviewRows.map'),'Review export must include every flagged row');
 assert.ok(html.includes("status:'待確認'"),'Review export must preserve pending status');
 assert.ok(html.includes('cloud_write_performed:false'),'Review export must not claim cloud writes');
-assert.ok(html.includes("id=\\\"exportImportReview\\\""),'Review export download control must exist');
+assert.ok(html.includes('id="exportImportReview"'),'Review export download control must exist');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
