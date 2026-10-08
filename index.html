@@ -5,11 +5,11 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#55bf91}.calc-metric.loss{border-color:#ee8b91}.calc-metric.profit strong{color:#80dbb3}.calc-metric.loss strong{color:#ff9b9f}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.3 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.4 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
-<section id="authLoading" class="card"><h2>正在恢復登入狀態…</h2><p class="muted">請稍候，不需要重新輸入密碼。</p></section>
-<section id="auth" class="card hidden"><h2>登入股票帳本</h2><p class="muted">使用 Supabase 帳號登入。首次使用請先註冊；若啟用電子郵件驗證，請到信箱完成驗證。</p><div class="grid"><label class="field">Email<input id="email" type="email" autocomplete="email"></label><label class="field">密碼<input id="password" type="password" autocomplete="current-password"></label></div><p class="actions"><button class="primary" id="signin">登入</button><button id="signup">註冊</button></p></section>
+<section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
+<section id="auth" class="card"><h2>登入股票帳本</h2><p class="muted">使用 Supabase 帳號登入。首次使用請先註冊；若啟用電子郵件驗證，請到信箱完成驗證。</p><div class="grid"><label class="field">Email<input id="email" type="email" autocomplete="email"></label><label class="field">密碼<input id="password" type="password" autocomplete="current-password"></label></div><p class="actions"><button class="primary" id="signin">登入</button><button id="signup">註冊</button></p></section>
 <section id="app" class="hidden">
 <nav><button data-page="trades" class="active">股票明細</button><button data-page="overview">持股總覽</button><button data-page="dividends">股息提醒</button><button data-page="other">其他資料</button></nav>
 <section id="trades" class="page"><div class="card"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div class="grid">
@@ -39,7 +39,10 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
-(()=>{'use strict';
+window.addEventListener('error',function(e){const m=document.getElementById('message');if(m){m.textContent='程式載入錯誤：'+(e.message||'未知錯誤');m.className='danger';}document.getElementById('authLoading')?.classList.add('hidden');document.getElementById('auth')?.classList.remove('hidden');});
+window.addEventListener('unhandledrejection',function(e){const m=document.getElementById('message');if(m){m.textContent='背景處理失敗：'+String(e.reason?.message||e.reason||'未知錯誤');m.className='danger';}});
+(()=>{
+'use strict';
 const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
 const $=id=>document.getElementById(id), client=window.supabase?.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let user=null,trades=[],tickers=[],banks=[],prices=[],editing=null;
@@ -171,7 +174,7 @@ showBackupReminder();
 reset();if(!client){$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('無法載入 Supabase 函式庫',true);return}
 let initialAuthResolved=false;
 let authBootComplete=false;
-const authFallback=setTimeout(()=>{if(authBootComplete)return;authBootComplete=true;$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態恢復逾時。可嘗試重新登入；若仍異常請回報此訊息。',true);},7000);
+const authFallback=setTimeout(()=>{if(authBootComplete)return;authBootComplete=true;$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態恢復逾時。登入表單仍可使用；若無法登入，請回報錯誤訊息。',true);},7000);
 function finishAuthBoot(){authBootComplete=true;clearTimeout(authFallback);}
 client.auth.onAuthStateChange((event,session)=>{
  if(!initialAuthResolved&&event==='INITIAL_SESSION')initialAuthResolved=true;
