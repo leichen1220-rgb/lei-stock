@@ -166,3 +166,6 @@ assert.ok(html.includes('position===558?'),'Confirmed Excel 558 cost must overri
 assert.ok(html.includes("'trade_fees','paid_cost','dividend_gross'"),'Paid cost must be whitelisted');
 assert.ok(html.includes("client.rpc('stock_paid_cost_readiness')"),'Staging must verify paid-cost SQL migration');
 assert.ok(html.includes("requires_sql_migration:'sql/06_paid_cost_and_import_commit.sql'"),'Dry run must disclose required migration');
+
+assert.ok(html.includes('if(profitStatuses.has(status)){'),'Profit status rows must be separated even when numeric');
+assert.ok(html.includes('numeric_value:parsed===null?null:Number(parsed)'),'Preserve profit-cell numeric values for audit, not paid cost');
