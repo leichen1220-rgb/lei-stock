@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.9.8 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.9.9 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -282,23 +282,41 @@ $('excelFile').addEventListener('change',async e=>{
   const suspect=after.filter(({row})=>!validTypes.has(String(row[typeCol]||'').trim()));
   const footerRows=suspect.filter(({row})=>!String(row[dateCol]||'').trim());
   const needsReview=suspect.filter(({row})=>String(row[dateCol]||'').trim());
-  // Conservative duplicate screening: same day and ticker alone are never sufficient.
+  // Compare only unambiguous dates and numeric values. Never infer a year from 5/6/16.
   const canonical=v=>String(v??'').trim().replace(/,/g,'');
-  const signature=row=>[dateCol,codeCol,typeCol,sharesCol,priceCol].map(c=>canonical(row[c])).join('¦');
-  const duplicateGroups=new Map();
+  const strictDate=v=>{
+   const m=String(v??'').trim().match(/^(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})$/);
+   if(!m)return null;
+   const y=Number(m[1]),month=Number(m[2]),day=Number(m[3]),d=new Date(Date.UTC(y,month-1,day));
+   return d.getUTCFullYear()===y&&d.getUTCMonth()===month-1&&d.getUTCDate()===day?
+    [String(y),String(month).padStart(2,'0'),String(day).padStart(2,'0')].join('-'):null;
+  };
+  const numberKey=v=>{
+   const raw=canonical(v);
+   if(!raw||!/^[+-]?(?:\\d+\\.?\\d*|\\.\\d+)$/.test(raw))return null;
+   const n=Number(raw);return Number.isFinite(n)?String(n):null;
+  };
+  const signatureParts=(date,ticker,type,quantity,price)=>{
+   const d=strictDate(date),q=numberKey(quantity),p=numberKey(price);
+   if(!d||!String(ticker??'').trim()||!String(type??'').trim()||q===null||p===null)return null;
+   return [d,String(ticker).trim().toUpperCase(),String(type).trim(),q,p].join('¦');
+  };
+  const signature=row=>signatureParts(row[dateCol],row[codeCol],row[typeCol],row[sharesCol],row[priceCol]);
+  const duplicateGroups=new Map(),ambiguousRows=[];
   for(const record of valid){
    const key=signature(record.row);
+   if(key===null){ambiguousRows.push(record.position);continue;}
    if(!duplicateGroups.has(key))duplicateGroups.set(key,[]);
    duplicateGroups.get(key).push(record.position);
   }
   const possibleDuplicates=[...duplicateGroups.values()].filter(positions=>positions.length>1);
   const duplicateRowCount=possibleDuplicates.reduce((count,positions)=>count+positions.length,0);
-  const existingKeys=new Set(trades.map(t=>[t.trade_date,t.ticker,t.transaction_type,t.quantity,t.price].map(canonical).join('¦')));
-  // Dates and amounts in the original workbook may use different display formats.
-  // An apparent cloud match is a review candidate, never an automatic skip.
-  const potentialCloudMatches=valid.filter(({row})=>existingKeys.has(signature(row)));
-  const duplicatePreview='<p><strong>疑似重複交易（僅提醒、不刪除）：</strong>Excel 內 '+possibleDuplicates.length+' 組、共 '+duplicateRowCount+' 列；與雲端資料表面相同 '+potentialCloudMatches.length+' 列。比對日期、代號、交易別、股數與成交價；同日同股但不同數量或價格不會視為同一組。</p>'+
-   (possibleDuplicates.length?'<p>疑似重複的 Excel 列號：'+possibleDuplicates.slice(0,10).map(positions=>esc(positions.join('、'))).join('；')+(possibleDuplicates.length>10?'；其餘 '+(possibleDuplicates.length-10)+' 組':'')+'</p>':'');
+  const existingKeys=new Set(trades.map(t=>signatureParts(t.trade_date,t.ticker,t.transaction_type,t.quantity,t.price)).filter(Boolean));
+  const potentialCloudMatches=valid.filter(({row})=>{const key=signature(row);return key!==null&&existingKeys.has(key);});
+  const duplicatePreview='<p><strong>疑似重複交易（僅提醒、不刪除）：</strong>Excel 內 '+possibleDuplicates.length+' 組、共 '+duplicateRowCount+' 列；與雲端相同特徵 '+potentialCloudMatches.length+' 列；日期或數值無法安全標準化 '+ambiguousRows.length+' 列。</p>'+
+   (possibleDuplicates.length?'<p>疑似重複的 Excel 列號：'+possibleDuplicates.slice(0,10).map(positions=>esc(positions.join('、'))).join('；')+(possibleDuplicates.length>10?'；其餘 '+(possibleDuplicates.length-10)+' 組':'')+'</p>':'')+
+   (ambiguousRows.length?'<p class="danger">暫不參與查重的列號：'+ambiguousRows.slice(0,15).join('、')+(ambiguousRows.length>15?' 等':'')+'。例如 5/6/16 這類日期不能擅自推定年份。</p>':'')+
+   '<p class="muted">只比對明確的西元日期、代號、交易別、股數及價格；相同特徵不代表同一筆委託，不會自動略過。</p>';
   // The dedicated stock-code sheet is authoritative for name mappings; never import from a guessed column.
   const nameSheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
   const existingNames=new Map(tickers.map(t=>[String(t.ticker||'').trim().toUpperCase(),String(t.display_name||'').trim()]));
