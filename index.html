@@ -332,6 +332,15 @@ $('excelFile').addEventListener('change',async e=>{
    return [d,String(ticker).trim().toUpperCase(),String(type).trim(),q,p].join('¦');
   };
   const signature=row=>signatureParts(row[dateCol],row[codeCol],row[typeCol],row[sharesCol],row[priceCol]);
+  const dateAudit={missing:[],invalid:[]};
+  for(const {row,position} of valid){
+   const value=String(row[dateCol]??'').trim();
+   if(!value)dateAudit.missing.push(position);
+   else if(!strictDate(value))dateAudit.invalid.push(position);
+  }
+  const dateAuditPreview='<p><strong>原始交易日期：</strong>缺少日期 '+dateAudit.missing.length+' 列；日期無法安全解析 '+dateAudit.invalid.length+' 列。'+
+   (dateAudit.missing.length?'缺日期列號：'+dateAudit.missing.slice(0,12).join('、')+'。':'')+
+   (dateAudit.invalid.length?'待核對列號：'+dateAudit.invalid.slice(0,12).join('、')+'。':'')+'</p>';
   const duplicateGroups=new Map(),ambiguousRows=[];
   for(const record of valid){
    const key=signature(record.row);
@@ -389,7 +398,7 @@ $('excelFile').addEventListener('change',async e=>{
    (nameIssues.length?'<p class="danger">名稱差異：'+nameIssues.slice(0,8).map(esc).join('；')+(nameIssues.length>8?'；其餘 '+(nameIssues.length-8)+' 項':'')+'</p>':'');
   const mask=r=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
   const suspectLines=needsReview.slice(0,12).map(({row,position})=>'第 '+position+' 列：代號 '+esc(row[codeCol])+'；日期 '+esc(row[dateCol])+'；交易別 '+esc(row[typeCol]||'（空白）')).join('<p>','</p>');
-  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；非交易試算區候選：'+footerRows.length+' 列；仍待確認：'+needsReview.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(needsReview.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+nameSummary+mappingCoverage+duplicatePreview+financeAudit+'<p>只有交易別符合三種且通過後續日期、欄位核對的紀錄才可正式匯入。底部試算區不會作為交易上傳；此階段仍僅預覽。</p>';
+  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；非交易試算區候選：'+footerRows.length+' 列；仍待確認：'+needsReview.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(needsReview.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+nameSummary+mappingCoverage+duplicatePreview+dateAuditPreview+financeAudit+'<p>只有交易別符合三種且通過後續日期、欄位核對的紀錄才可正式匯入。底部試算區不會作為交易上傳；此階段仍僅預覽。</p>';
  }catch(err){out.textContent='讀取失敗：'+err.message;}
 });
 function renderCalculator(){
