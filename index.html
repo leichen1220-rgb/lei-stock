@@ -632,6 +632,13 @@ $('excelFile').addEventListener('change',async e=>{
    const price=type==='現股'&&originalReviewMatches&&position===307&&ticker==='2002'?
     20.1:(type==='現股'?decimal(row[priceCol],true):null);
    const fees=type==='現股'?decimal(feeCol<0?'':row[feeCol],true):null;
+   const excelStatus=statusCol>=0?String(row[statusCol]??'').trim():'';
+   // Profit status may use the Excel paid-cost cell for a profit formula.
+   // Never misclassify that formula result as the original acquisition cost.
+   const sourcePaidCost=type==='現股'&&!profitStatuses.has(excelStatus)?
+    decimal(paidCostCol<0?'':row[paidCostCol],false):null;
+   const paidCost=type==='現股'&&paidCost558Review&&position===558?
+    5512:sourcePaidCost;
    const net=type==='現金股息'?decimal(dividendCol<0?'':row[dividendCol],true):null;
    const wire=type==='現金股息'?decimal(wireCol<0?'':row[wireCol],false):null;
    const gross=type==='現金股息'&&Number.isFinite(net)&&Number.isFinite(wire??0)?net+(wire??0):null;
@@ -641,12 +648,13 @@ $('excelFile').addEventListener('change',async e=>{
    if(!proposedNames.has(ticker)&&!existingNames.has(ticker))errors.push('代號未核實');
    if(!date)errors.push('日期');
    if(type==='現股'&&(!Number.isFinite(quantity)||quantity===0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0))errors.push('現股數量／價格／費用');
+   if(type==='現股'&&paidCost!==null&&(!Number.isFinite(paidCost)||paidCost<0))errors.push('付出成本');
    if(type==='股票股利'&&(!Number.isFinite(quantity)||quantity<=0))errors.push('股票股利股數');
    if(type==='現金股息'&&(!Number.isFinite(net)||net<0||!Number.isFinite(wire??0)||wire<0))errors.push('股息／匯費');
    if(String(paymentRaw??'').trim()&&!paymentDate)errors.push('入帳日期');
    if(errors.length){conversionErrors.push({position,errors});continue;}
    convertedTrades.push({excel_row:position,trade_date:date,ticker,transaction_type:type,
-    quantity,price,trade_fees:fees,dividend_gross:gross,wire_fee:wire,
+    quantity,price,trade_fees:fees,paid_cost:paidCost,dividend_gross:gross,wire_fee:wire,
     payment_date:paymentDate,note:noteCol<0?null:String(row[noteCol]??'').trim()||null,
     sequence_no:position});
   }
@@ -720,7 +728,7 @@ $('excelFile').addEventListener('change',async e=>{
    confirmed_footer_rows:confirmedFooterRows.map(x=>x.position),
    footer_trade_conflicts:footerTradeConflicts.map(x=>x.position),
    disposition:importDisposition,
-   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,reviewed_rows:reviewedPaidCostRows,cloud_field_available:false},
+   paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,reviewed_rows:reviewedPaidCostRows,cloud_field_available:false,requires_sql_migration:'sql/06_paid_cost_and_import_commit.sql'},
    review_decisions:originalReviewMatches?{
     price_override:{excel_row:307,ticker:'2002',price:20.1},
     confirmed_duplicate:verifiedDuplicatePair?{keep_excel_row:554,exclude_excel_row:557}:null,
@@ -741,12 +749,15 @@ $('excelFile').addEventListener('change',async e=>{
   importPlan.blockers=[...blockers];
   // Check the explicit database payload contract and Excel row identity.
   const allowedImportKeys=new Set(['trade_date','ticker','transaction_type','quantity','price',
-   'trade_fees','dividend_gross','wire_fee','payment_date','note','sequence_no']);
+   'trade_fees','paid_cost','dividend_gross','wire_fee','payment_date','note','sequence_no']);
   const payloadKeyErrors=importPlan.rows.filter(({excel_row,transaction})=>
    !Number.isSafeInteger(excel_row)||excel_row<=0||
    Object.keys(transaction).some(key=>!allowedImportKeys.has(key))||
    transaction.sequence_no!==excel_row);
   if(payloadKeyErrors.length)blockers.push('匯入欄位或原始列號不一致：'+payloadKeyErrors.length+' 筆');
+  // Migration 06 is a manual database step; do not assume a GitHub push
+  // changed Supabase. The paid-cost feature probe is checked before staging.
+  importPlan.paid_cost_migration='sql/06_paid_cost_and_import_commit.sql';
   // Stage is deliberately blocked until costs can be retained end-to-end.
   // The reviewed value must not be silently dropped when staging succeeds.
   if(reviewedPaidCostRows.length&&importPlan.rows.some(x=>x.excel_row===558))
@@ -837,6 +848,14 @@ $('excelFile').addEventListener('change',async e=>{
     status.textContent='已取消暫存';return;
    }
    stageButton.disabled=true;status.textContent='重新核對雲端帳本與原始檔…';
+   // This RPC exists only after migration 06 has been installed in Supabase.
+   // A missing RPC, incomplete schema, or unexpected version fails closed.
+   try{
+    const {data:cap,error:capError}=await client.rpc('stock_paid_cost_readiness');
+    if(capError||cap?.schema_version!==1||cap?.paid_cost_column!==true||
+       cap?.commit_function_updated!==true)
+     throw new Error('Supabase 尚未安裝或驗證付出成本資料庫升級（SQL 06）');
+   }catch(e){status.textContent='成本欄位檢查失敗：'+e.message;stageButton.disabled=false;return;}
    try{
     const currentFile=($('excelFile').files||[])[0];
     if(currentFile!==file)throw new Error('來源 Excel 已變更，請重新預覽');
