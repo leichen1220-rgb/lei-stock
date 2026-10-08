@@ -27,6 +27,10 @@ assert.ok(html.includes("const waitingRows=suspect.filter"),'Pending trade plans
 assert.ok(html.includes("const refundRows=suspect.filter"),'Capital refunds must be classified separately');
 assert.ok(html.includes("const remainingSuspect=suspect.filter(item=>!specialRows.has(item))"),'Recognized special rows must not be reported as unknown trades');
 assert.ok(html.includes("等待不代表成交"),'Pending trades must not be counted as executed');
+assert.ok(html.includes('const reviewByRow=new Map()'),'Review queue must group reasons per Excel row');
+assert.ok(html.includes('reviewRows.map(([position,reasons])'),'Every flagged row must be rendered');
+assert.ok(html.includes('Excel 原始列號'),'Original row reference must remain visible');
+assert.ok(html.includes('僅本機預檢，不代表已匯入'),'Review must not pretend to be persisted');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
