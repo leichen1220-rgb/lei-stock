@@ -125,7 +125,7 @@ assert.ok(html.includes('confirmed_paid_cost:5512'),'Original row 558 correction
 assert.ok(html.includes('applied_to_transaction:false'),'Paid cost must not be silently mapped into transaction price or fees');
 assert.ok(html.includes('paid_cost_audit:{column_recognized:'),'Dry-run report must preserve cost reconciliation status');
 assert.ok(html.includes('reviewedCorrectionsPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
-assert.ok(html.includes('const paidCostRows=[],paidCostInvalidRows=[]'),'Audit all source cost rows');
+assert.ok(html.includes('const paidCostRows=[],paidCostInvalidRows=[],paidCostProfitRows=[]'),'Audit all source cost rows');
 assert.ok(html.includes('reviewed_paid_cost:paidCost558Review&&position===558?5512:null'),'Reviewed cost must be recorded separately from source value');
 assert.ok(html.includes('invalid_rows:paidCostInvalidRows'),'Invalid paid-cost values must be visible in exported plan');
 assert.ok(html.includes('importPlan.production_import_blockers='),'Production cost reconciliation must remain explicitly blocked');
@@ -152,3 +152,10 @@ assert.match(html,/const footerBoundary=612/,'Original ledger ends at Excel row 
 assert.match(html,/const footerTradeConflicts=confirmedFooterRows\.filter/,'Trade-shaped rows in footer must be audited');
 assert.match(html,/if\(footerTradeConflicts\.length\)blockers\.push/,'Unexpected trade-shaped footer rows must block import');
 assert.match(html,/confirmed_footer_rows:confirmedFooterRows\.map/,'Import plan must account for excluded footer rows');
+
+assert.ok(html.includes("normalizeTicker(row558.row[codeCol])==='2327'"),'Row 558 belongs to 2327, not 6175');
+assert.ok(html.includes("ticker:'2327',confirmed_paid_cost:5512"),'Row 558 verified cost must use exact ticker');
+assert.ok(html.includes('const reviewedPaidCostRows=paidCost558Review?'),'Reviewed cost must survive blank/formula source cells');
+assert.ok(html.includes('reviewed_rows:reviewedPaidCostRows'),'Exported audit must retain confirmed cost independently');
+assert.ok(html.includes("blockers.push('第 558 列付出成本 5,512 元尚無雲端欄位可保存"),'No staging until cost can be persisted');
+assert.ok(html.includes('importPlan.blockers=[...blockers];'),'Final blockers must be copied to export');
