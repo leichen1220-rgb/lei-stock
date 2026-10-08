@@ -120,4 +120,9 @@ assert.deepEqual(sameWorkbook.valid.map(x=>x.position),[307,554],'Keep first div
 const editedWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'edited','sha-ok',v=>String(v).trim().toUpperCase());
 assert.deepEqual(editedWorkbook.valid.map(x=>x.position),[106,307,554,557],'Do not apply row-based overrides to edited workbook');
 
+assert.ok(html.includes("const paidCostCol=idx('付出成本'"),'Independent paid-cost column must be identified');
+assert.ok(html.includes('confirmed_paid_cost:5512'),'Original row 558 correction must be retained');
+assert.ok(html.includes('applied_to_transaction:false'),'Paid cost must not be silently mapped into transaction price or fees');
+assert.ok(html.includes('paid_cost_audit:{column_recognized:'),'Dry-run report must preserve cost reconciliation status');
+assert.ok(html.includes('reviewedCorrectionsPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
 console.log('PASS: Excel preflight normalization and source-format guards');
