@@ -249,4 +249,20 @@ commit;
 end $$;
 revoke all on function public.stock_commit_import(uuid,integer) from public,anon;
 grant execute on function public.stock_commit_import(uuid,integer) to authenticated;
+-- Read-only feature probe, created atomically with the updated commit RPC.
+create or replace function public.stock_paid_cost_readiness()
+returns jsonb language sql security invoker set search_path = ''
+as $paid_ready$
+ select pg_catalog.jsonb_build_object(
+  'schema_version', 1,
+  'paid_cost_column', exists (
+   select 1 from information_schema.columns
+   where table_schema='public' and table_name='stock_transactions'
+     and column_name='paid_cost' and data_type='numeric'
+  ),
+  'commit_function_updated', true
+ )
+$paid_ready$;
+revoke all on function public.stock_paid_cost_readiness() from public,anon;
+grant execute on function public.stock_paid_cost_readiness() to authenticated;
 commit;
