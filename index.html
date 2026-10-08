@@ -285,7 +285,7 @@ $('excelFile').addEventListener('change',async e=>{
   // Compare only unambiguous dates and numeric values. Never infer a year from 5/6/16.
   const canonical=v=>String(v??'').trim().replace(/,/g,'');
   const strictDate=v=>{
-   const m=String(v??'').trim().match(/^(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})$/);
+   const m=String(v??'').trim().match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
    if(!m)return null;
    const y=Number(m[1]),month=Number(m[2]),day=Number(m[3]),d=new Date(Date.UTC(y,month-1,day));
    return d.getUTCFullYear()===y&&d.getUTCMonth()===month-1&&d.getUTCDate()===day?
@@ -293,7 +293,7 @@ $('excelFile').addEventListener('change',async e=>{
   };
   const numberKey=v=>{
    const raw=canonical(v);
-   if(!raw||!/^[+-]?(?:\\d+\\.?\\d*|\\.\\d+)$/.test(raw))return null;
+   if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
    const n=Number(raw);return Number.isFinite(n)?String(n):null;
   };
   const signatureParts=(date,ticker,type,quantity,price)=>{
