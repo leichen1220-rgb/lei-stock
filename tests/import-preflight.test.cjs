@@ -108,4 +108,16 @@ assert.deepEqual(sampleResult.refundRows.map(x=>x.position),[12]);
 assert.deepEqual(sampleResult.valid.map(x=>x.position),[10]);
 assert.deepEqual(sampleResult.missingCodeRows.map(x=>x.position),[13]);
 assert.deepEqual(sampleResult.needsReview.map(x=>x.position),[]);
+const verifiedSample=[
+ {row:['9105','現股','已成交','2026-01-01'],excelRow:106},
+ {row:['2002','現股','已成交','2026-01-02'],excelRow:307},
+ {row:['6175','現金股息','已成交','2026-01-03'],excelRow:554},
+ {row:['6175','現金股息','已成交','2026-01-03'],excelRow:557}
+];
+const sameWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'sha-ok','sha-ok',v=>String(v).trim().toUpperCase());
+assert.deepEqual(sameWorkbook.refundRows.map(x=>x.position),[106],'Verified refund must be excluded from trades');
+assert.deepEqual(sameWorkbook.valid.map(x=>x.position),[307,554],'Keep first dividend, exclude confirmed duplicate');
+const editedWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'edited','sha-ok',v=>String(v).trim().toUpperCase());
+assert.deepEqual(editedWorkbook.valid.map(x=>x.position),[106,307,554,557],'Do not apply row-based overrides to edited workbook');
+
 console.log('PASS: Excel preflight normalization and source-format guards');
