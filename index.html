@@ -657,12 +657,25 @@ $('excelFile').addEventListener('change',async e=>{
    if(!ticker||!/^[0-9A-Z]{2,12}$/.test(ticker))errors.push('代號');
    if(!proposedNames.has(ticker)&&!existingNames.has(ticker))errors.push('代號未核實');
    if(!date)errors.push('日期');
-   if(type==='現股'&&(!Number.isFinite(quantity)||quantity===0||!Number.isFinite(price)||price<=0||!Number.isFinite(fees)||fees<0))errors.push('現股數量／價格／費用');
+   if(type==='現股'){
+    if(!Number.isFinite(quantity)||quantity===0)errors.push('現股股數（原始值：'+String(row[sharesCol]??'').slice(0,35)+'）');
+    if(!Number.isFinite(price)||price<=0)errors.push('成交價（原始值：'+String(row[priceCol]??'').slice(0,35)+'）');
+    if(!Number.isFinite(fees)||fees<0)errors.push('手續費／交易稅（原始值：'+String(feeCol<0?'找不到欄位':row[feeCol]??'').slice(0,35)+'）');
+   }
    if(type==='現股'&&paidCost!==null&&(!Number.isFinite(paidCost)||paidCost<0))errors.push('付出成本');
    if(type==='股票股利'&&(!Number.isFinite(quantity)||quantity<=0))errors.push('股票股利股數');
    if(type==='現金股息'&&(!Number.isFinite(net)||net<0||!Number.isFinite(wire??0)||wire<0))errors.push('股息／匯費');
    if(String(paymentRaw??'').trim()&&!paymentDate)errors.push('入帳日期');
-   if(errors.length){conversionErrors.push({position,errors});continue;}
+   if(errors.length){
+    conversionErrors.push({position,ticker,type,status:excelStatus,errors,
+     source_fields:{
+      date:String(row[dateCol]??''),quantity:String(row[sharesCol]??''),
+      price:String(row[priceCol]??''),fees:feeCol<0?null:String(row[feeCol]??''),
+      paid_cost:paidCostCol<0?null:String(row[paidCostCol]??''),
+      applied_price:price,applied_paid_cost:paidCost
+     }});
+    continue;
+   }
    convertedTrades.push({excel_row:position,trade_date:date,ticker,transaction_type:type,
     quantity,price,trade_fees:fees,paid_cost:paidCost,dividend_gross:gross,wire_fee:wire,
     payment_date:paymentDate,note:noteCol<0?null:String(row[noteCol]??'').trim()||null,
@@ -672,8 +685,21 @@ $('excelFile').addEventListener('change',async e=>{
   const conversionPreview='<section><strong>雲端交易欄位轉換（僅本機試算）</strong>'+
    '<p>成功轉換 '+convertedTrades.length+'／'+valid.length+' 筆；待核對 '+conversionErrors.length+' 筆。'+
    (conversionErrors.length?'Excel 列號與原因：'+conversionErrors.slice(0,12).map(x=>x.position+'（'+esc(x.errors.join('、'))+'）').join('；'):'')+'</p>'+
-   '<p class="muted">轉換包含交易日期、股票代號、交易類型、股數、價格、費用、股息總額、匯費、入帳日期、備註及原始列序。這不是匯入完成，也不會寫入資料庫。</p></section>';
+   '<p class="muted">轉換包含交易日期、股票代號、交易類型、股數、價格、費用、股息總額、匯費、入帳日期、備註及原始列序。失敗列已附上原始欄位值與已套用的修正值，可下載匯入計畫核對。這不是匯入完成，也不會寫入資料庫。</p></section>';
   // Unified, row-level review queue; this is read-only until cloud import exists.
+  // Already confirmed corrections must be visible separately from unresolved
+  // field-level errors, otherwise users are repeatedly asked for the same facts.
+  const correctedRowDiagnostics=conversionErrors.filter(x=>originalReviewMatches&&
+   (x.position===307||x.position===558));
+  const correctionDiagnosticPreview=correctedRowDiagnostics.length?
+   '<p class="danger"><strong>已套用妳確認的修正，但仍有其他欄位未通過：</strong>'+
+   correctedRowDiagnostics.map(x=>'第 '+x.position+' 列（'+esc(x.ticker)+'）：'+
+    x.errors.map(esc).join('；')+
+    '。目前套用成交價 '+esc(String(x.source_fields.applied_price??'無'))+
+    '、付出成本 '+esc(String(x.source_fields.applied_paid_cost??'無'))).join('<hr>')+
+   '</p>':'';
+  // Review queue should show the exact invalid field instead of the former
+  // misleading combined label "現股數量／價格／費用".
   const reviewByRow=new Map();
   const flag=(position,reason)=>{if(!reviewByRow.has(position))reviewByRow.set(position,new Set());reviewByRow.get(position).add(reason);};
   for(const item of conversionErrors)for(const reason of item.errors)flag(item.position,'轉換：'+reason);
@@ -778,7 +804,7 @@ $('excelFile').addEventListener('change',async e=>{
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
-   reviewedCorrectionsPreview+paidCostAudit+unaccountedDetail+conversionDetail+
+   reviewedCorrectionsPreview+correctionDiagnosticPreview+paidCostAudit+unaccountedDetail+conversionDetail+
    '<p class="muted">原始檔 SHA-256：'+(importPlan.source_sha256||'無法計算')+'；交易資料 SHA-256：'+(importPlan.payload_sha256||'無法計算')+'</p>'+
    '<p><button type="button" id="exportImportPlan">下載匯入計畫（JSON）</button></p>'+
    '<p><button type="button" id="checkImportReadiness">檢查雲端匯入環境（唯讀）</button> <span id="importReadinessResult" aria-live="polite"></span></p>'+
