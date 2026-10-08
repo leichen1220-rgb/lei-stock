@@ -44,6 +44,8 @@ assert.ok(html.includes("prior.row_snapshot!==item.row_snapshot"),'Changed rows 
 assert.ok(html.includes("JSON.stringify(prior.reasons)!==JSON.stringify(item.reasons)"),'Changed warnings must reject old confirmations');
 assert.ok(html.includes("saved.rows.length!==reviewExport.rows.length"),'Changed review counts must reject old confirmations');
 assert.ok(html.includes("id=\"restoreImportReview\""),'Review report upload control must exist');
+assert.ok(html.indexOf('const waitingRows=candidateRows.filter')<html.indexOf('const valid=after.filter'),'Pending status must be classified before executed trades');
+assert.ok(html.includes("String(row[statusCol]??'').trim()==='等待'"),'Pending classification must use the actual status column');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
