@@ -137,4 +137,7 @@ assert.ok(tickerNormalizerPosition>0&&tickerNormalizerPosition<refundCheckPositi
 assert.ok(paidCostParserPosition>0&&paidCostParserPosition<paidCostReviewPosition,'Paid-cost numeric parser must be initialized before row 558 review');
 assert.ok(html.includes('const parsed=paidCostNumberKey(raw);'),'All paid-cost rows must use initialized numeric parser');
 assert.ok(!html.includes('const paidCost558Source=paidCost558Raw===null?null:numberKey('),'Avoid using later-initialized numeric helper during paid-cost review');
+assert.ok(html.includes("flag(item.excel_row,'付出成本：無法解析原始值"),'Invalid source costs must appear in row-level review');
+assert.ok(html.includes("if(paidCostInvalidRows.length)blockers.push("),'Invalid source costs must block unsafe production import');
+assert.ok(html.includes("if(paidCostCol<0)blockers.push("),'Missing source cost column must be explicit');
 console.log('PASS: Excel preflight normalization and source-format guards');
