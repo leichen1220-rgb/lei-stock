@@ -127,11 +127,13 @@ $('excelFile').addEventListener('change',async e=>{
   if(headerIndex<0){out.textContent='找到股票明細，但無法辨識欄位標題；沒有匯入任何資料。';return;}
   const header=rows[headerIndex].map(normalized), idx=(...names)=>header.findIndex(h=>names.some(n=>h===normalized(n)));
   const codeCol=idx('代號','股票代號'),dateCol=idx('成交/除權息日','成交/除權息日期','成交除權息日'),typeCol=idx('交易別'),sharesCol=idx('股數'),priceCol=idx('成交價');
-  const after=rows.slice(headerIndex+1).filter(r=>String(r[codeCol]||'').trim());
-  const issues=[];
-  after.forEach((r,i)=>{const t=String(r[typeCol]||'').trim();if(!['現股','現金股息','股票股利'].includes(t))issues.push('第 '+(headerIndex+i+2)+' 列：交易別 '+t+' 待確認');});
-  const mask=(r)=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
-  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>辨識交易：'+after.length+' 筆；欄位：'+header.length+' 欄；需檢查：'+issues.length+' 筆</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+after.slice(0,5).map(r=>'<p>'+mask(r)+'</p>').join('')+'</div>'+(issues.length?'<p class="danger">'+issues.slice(0,8).map(esc).join('；')+'</p>':'')+'<p>安全起見，此階段僅預覽；尚未啟用批量寫入。</p>';
+  const after=rows.slice(headerIndex+1).map((row,i)=>({row,position:headerIndex+i+2})).filter(({row})=>String(row[codeCol]||'').trim());
+  const validTypes=new Set(['現股','現金股息','股票股利']);
+  const valid=after.filter(({row})=>validTypes.has(String(row[typeCol]||'').trim()));
+  const suspect=after.filter(({row})=>!validTypes.has(String(row[typeCol]||'').trim()));
+  const mask=r=>[r[codeCol],r[dateCol],r[typeCol],r[sharesCol],r[priceCol]].map(v=>esc(v)).join('｜');
+  const suspectLines=suspect.slice(0,12).map(({row,position})=>'第 '+position+' 列：代號 '+esc(row[codeCol])+'；日期 '+esc(row[dateCol])+'；交易別 '+esc(row[typeCol]||'（空白）')).join('<p>','</p>');
+  out.innerHTML='<p><strong>只在本機完成預覽，尚未寫入資料庫</strong></p><p>候選資料：'+after.length+' 列；已辨識交易類型：'+valid.length+' 列；待確認：'+suspect.length+' 列；欄位：'+header.length+' 欄</p><p>欄位對應：代號 '+(codeCol+1)+'、日期 '+(dateCol+1)+'、交易別 '+(typeCol+1)+'、股數 '+(sharesCol+1)+'、成交價 '+(priceCol+1)+'</p><p>前五筆（代號｜日期｜交易別｜股數｜成交價）：</p><div>'+valid.slice(0,5).map(({row})=>'<p>'+mask(row)+'</p>').join('')+'</div>'+(suspect.length?'<div class="danger"><strong>待確認列（可能為表尾註記或交易類型未支援）：</strong><p>'+suspectLines+'</p></div>':'')+'<p>安全起見，此階段僅預覽；尚未啟用批量寫入。日期年份與公式仍需核對。</p>';
  }catch(err){out.textContent='讀取失敗：'+err.message;}
 });
 function showBackupReminder(){
