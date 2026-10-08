@@ -16,4 +16,23 @@ for(const token of [
 ])assert.ok(sql.includes(token),'Missing import staging safety invariant: '+token);
 assert.ok(!/insert\s+into\s+public\.stock_transactions/i.test(sql),'Staging migration must not touch production transactions');
 assert.ok(!/delete\s+from\s+public\.stock_transactions/i.test(sql),'Staging migration must not delete production transactions');
-console.log('PASS: SQL staging migration static safety checks (database execution not tested)');
+const commitSql=fs.readFileSync('sql/03_stock_import_commit.sql','utf8');
+for(const token of [
+ 'begin;','commit;',
+ 'create or replace function public.stock_commit_import',
+ 'security definer set search_path',
+ 'where id=p_batch_id and owner_id=v_owner for update',
+ "if v_batch.state='committed' then",
+ 'pg_advisory_xact_lock',
+ 'Account already has transactions',
+ 'Staging row count mismatch',
+ 'Inserted row count mismatch',
+ 'Batch state transition failed',
+ 'insert into public.stock_transactions',
+ 's.excel_row',
+ 'revoke all on function public.stock_commit_import',
+ 'grant execute on function public.stock_commit_import'
+])assert.ok(commitSql.includes(token),'Missing commit safety invariant: '+token);
+assert.ok(!/delete\\s+from\\s+public\\.stock_transactions/i.test(commitSql),'Commit must not delete existing transactions');
+assert.ok(!/truncate\\s+public\\.stock_transactions/i.test(commitSql),'Commit must not truncate existing transactions');
+console.log('PASS: SQL staging and commit static safety checks (database execution not tested)');
