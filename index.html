@@ -334,7 +334,17 @@ $('excelFile').addEventListener('change',async e=>{
    normalizeTicker(candidateRows.find(x=>x.position===557).row[codeCol])==='6175';
   const confirmedDuplicateRows=verifiedDuplicatePair?
    candidateRows.filter(x=>x.position===557):[];
-  const specialRows=new Set([...waitingRows,...refundRows,...confirmedDuplicateRows]);
+  // The user confirmed the original workbook ends its transaction ledger
+  // at Excel row 612 (00830). Rows 613+ are calculators/memos, not trades.
+  // Scope this to the exact workbook hash: never discard rows of edited files.
+  // A trade-shaped row after the boundary is a hard error, not silently ignored.
+  const footerBoundary=612;
+  const confirmedFooterRows=originalReviewMatches?
+   candidateRows.filter(item=>item.position>footerBoundary):[];
+  const footerTradeConflicts=confirmedFooterRows.filter(({row})=>
+   validTypes.has(String(row[typeCol]??'').trim())&&
+   String(row[codeCol]??'').trim()&&String(row[dateCol]??'').trim());
+  const specialRows=new Set([...waitingRows,...refundRows,...confirmedDuplicateRows,...confirmedFooterRows]);
   const executableRows=candidateRows.filter(item=>!specialRows.has(item));
   const missingCodeRows=executableRows.filter(({row})=>!String(row[codeCol]??'').trim()&&validTypes.has(String(row[typeCol]??'').trim()));
   const after=executableRows.filter(({row})=>String(row[codeCol]??'').trim());
@@ -352,6 +362,7 @@ $('excelFile').addEventListener('change',async e=>{
    '<p>等待中的交易計畫：'+waitingRows.length+' 列'+(waitingRows.length?'（Excel 第 '+waitingRows.slice(0,15).map(x=>x.position).join('、')+' 列）':'')+'；增資退款：'+refundRows.length+' 列'+(refundRows.length?'（第 '+refundRows.map(x=>x.position).join('、')+' 列）':'')+'。</p>'+
    statusWarning+
    (verifiedRefundCount?'<p>已依原始檔 SHA-256、代號與列號核對：Excel 第 106 列（9105）為妳確認的增資退款，已從成交候選排除。</p>':'')+
+   (originalReviewMatches?'<p>已確認此原始 Excel 的成交／等待清單止於第 612 列；第 613 列起的 '+confirmedFooterRows.length+' 列歸為試算／備註，另行保留列號，不納入交易。'+(footerTradeConflicts.length?' <strong class="danger">但有 '+footerTradeConflicts.length+' 列看似交易，暫停匯入。</strong>':'')+'</p>':'')+
    '<p class="muted">等待不代表成交，預設價與數量僅供計畫參考；增資退款應記錄為資金異動，不能當作股票買賣或股息。兩者都尚未寫入雲端。</p></section>';
 
   // Audit optional financial fields without inventing missing values.
@@ -588,6 +599,7 @@ $('excelFile').addEventListener('change',async e=>{
    (nameIssues.length?'<p class="danger">名稱差異：'+nameIssues.slice(0,8).map(esc).join('；')+(nameIssues.length>8?'；其餘 '+(nameIssues.length-8)+' 項':'')+'</p>':'');
   // Explicit go/no-go gate. A preview is not permission to write to Supabase.
   const blockers=[];
+  if(footerTradeConflicts.length)blockers.push('試算／備註區出現疑似成交資料 '+footerTradeConflicts.length+' 列，請確認交易最後列號');
   if(statusCol<0)blockers.push('無法辨識狀態欄，不能排除等待交易；禁止正式匯入');
   if(!nameSheetValid)blockers.push('缺少可辨識的個股代號對照表');
   if(missingCodeRows.length)blockers.push('有 '+missingCodeRows.length+' 筆交易缺股票代號');
@@ -668,7 +680,8 @@ $('excelFile').addEventListener('change',async e=>{
    ...confirmedDuplicateRows.map(x=>({excel_row:x.position,kind:'已確認重複，排除'})),
    ...missingCodeRows.map(x=>({excel_row:x.position,kind:'缺少代號'})),
    ...needsReview.map(x=>({excel_row:x.position,kind:'未辨識交易'})),
-   ...footerRows.map(x=>({excel_row:x.position,kind:'非交易計算列'}))
+   ...footerRows.map(x=>({excel_row:x.position,kind:'非交易計算列'})),
+   ...confirmedFooterRows.map(x=>({excel_row:x.position,kind:'原始檔已確認試算／備註區'}))
   ].sort((a,b)=>a.excel_row-b.excel_row);
   const sourceRows=candidateRows.filter(({row})=>row.some(c=>String(c??'').trim()!==''));
   const accounted=new Set(importDisposition.map(x=>x.excel_row));
@@ -694,6 +707,8 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    source_row_count:sourceRows.length,
    excluded_info_rows:excludedInfoRows,
+   confirmed_footer_rows:confirmedFooterRows.map(x=>x.position),
+   footer_trade_conflicts:footerTradeConflicts.map(x=>x.position),
    disposition:importDisposition,
    paid_cost_audit:{column_recognized:paidCostCol>=0,source_column:paidCostCol>=0?header[paidCostCol]:null,rows:paidCostRows,profit_status_rows:paidCostProfitRows,invalid_rows:paidCostInvalidRows,row_558:paidCost558Review,cloud_field_available:false},
    review_decisions:originalReviewMatches?{
