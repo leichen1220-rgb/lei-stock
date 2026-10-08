@@ -16,8 +16,8 @@ for(const token of [
 ])assert.ok(sql.includes(token),'Missing import staging safety invariant: '+token);
 assert.ok(!/insert\s+into\s+public\.stock_transactions/i.test(sql),'Staging migration must not touch production transactions');
 assert.ok(!/delete\s+from\s+public\.stock_transactions/i.test(sql),'Staging migration must not delete production transactions');
-assert.equal((sql.match(/\\bcommit;/g)||[]).length,1,'One commit only');
-assert.equal((sql.match(/\\$\\$/g)||[]).length,2,'One function body only');
+assert.equal(sql.split('commit;').length-1,1,'One commit only');
+assert.equal(sql.split('$$').length-1,2,'One function body only');
 assert.ok(sql.includes('^[0-9A-Z]{2,12}'), 'Ticker regex present');
 assert.ok(sql.includes('^[0-9]{4}-[0-9]{2}-[0-9]{2}'), 'Date regex present');
 const commitSql=fs.readFileSync('sql/03_stock_import_commit.sql','utf8');
