@@ -359,8 +359,8 @@ $('excelFile').addEventListener('change',async e=>{
   const nameSheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
   // Stock-code worksheet is authoritative. Normalize invisible/full-width whitespace
   // and case, but never remove meaningful digits or leading zeros.
-  const normalizeTicker=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'').toUpperCase();
-  const normalizeDisplayName=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'').trim();
+  const normalizeTicker=v=>String(v??'').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]/g,'').toUpperCase();
+  const normalizeDisplayName=v=>String(v??'').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]/g,'').trim();
   const existingNames=new Map(tickers.map(t=>[normalizeTicker(t.ticker),normalizeDisplayName(t.display_name)]));
   const proposedNames=new Map(),nameIssues=[];
   let nameSheetCount=0,nameSheetValid=false;
@@ -388,7 +388,7 @@ $('excelFile').addEventListener('change',async e=>{
   const quoteSymbols=new Map(),quoteIssues=[];
   if(nameSheet&&nameSheetValid){
    const nameRows=XLSX.utils.sheet_to_json(book.Sheets[nameSheet],{header:1,defval:'',raw:false});
-   const clean=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u200B-\\u200D\\uFEFF]/g,'').trim();
+   const clean=v=>String(v??'').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]/g,'').trim();
    const hr=nameRows.findIndex(row=>row.some(v=>clean(v)==='名稱')&&row.some(v=>clean(v)==='代號'));
    if(hr>=0){
     const heads=nameRows[hr].map(clean),ci=heads.indexOf('代號'),qi=heads.indexOf('Numbers代號'),mi=heads.indexOf('上市／櫃');
