@@ -87,6 +87,38 @@ begin
  order by s.excel_row;
  get diagnostics v_written = row_count;
  if v_written <> p_expected_rows then raise exception 'Inserted row count mismatch'; end if;
+ -- Verify every staged source row against the actual inserted record.
+ -- sequence_no carries the original Excel row for this initial import.
+ -- This is deliberately NOT a DISTINCT-based comparison: two otherwise
+ -- identical trades on separate Excel rows must remain two records.
+ if exists (
+   select 1 from public.stock_import_stage_rows s
+   left join public.stock_transactions t
+     on t.owner_id=v_owner and t.sequence_no=s.excel_row
+   where s.batch_id=p_batch_id and s.owner_id=v_owner and (
+     t.id is null
+     or t.trade_date is distinct from (s.transaction_data->>'trade_date')::date
+     or t.ticker is distinct from (s.transaction_data->>'ticker')
+     or t.transaction_type is distinct from (s.transaction_data->>'transaction_type')
+     or t.quantity is distinct from (s.transaction_data->>'quantity')::numeric
+     or t.price is distinct from (s.transaction_data->>'price')::numeric
+     or t.trade_fees is distinct from (s.transaction_data->>'trade_fees')::numeric
+     or t.dividend_gross is distinct from (s.transaction_data->>'dividend_gross')::numeric
+     or t.wire_fee is distinct from (s.transaction_data->>'wire_fee')::numeric
+     or t.payment_date is distinct from nullif(s.transaction_data->>'payment_date','')::date
+     or t.note is distinct from nullif(s.transaction_data->>'note','')
+   )
+ ) then raise exception 'Inserted transaction content mismatch'; end if;
+ -- No extra rows: count already matches, but verify Excel-row keys are unique
+ -- in the destination as well, not merely in the staging input.
+ if exists (
+   select 1 from public.stock_transactions t
+   where t.owner_id=v_owner and t.sequence_no in (
+     select excel_row from public.stock_import_stage_rows where batch_id=p_batch_id
+   )
+   group by t.sequence_no having count(*) <> 1
+ ) then raise exception 'Duplicate imported source row'; end if;
+
  update public.stock_import_batches set state='committed'
  where id=p_batch_id and owner_id=v_owner and state='staged';
  if not found then raise exception 'Batch state transition failed'; end if;
