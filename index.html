@@ -208,7 +208,7 @@ $('backupBoth').onclick=async()=>{if(!cloudDataReady)return msg('雲端資料尚
   const wb=XLSX.utils.book_new();
   const columns=[
    ['trade_date','成交/除權息日'],['ticker','代號'],['transaction_type','交易別'],
-   ['quantity','股數'],['price','成交價'],['trade_fees','手續費&交易稅'],
+   ['quantity','股數'],['price','成交價'],['trade_fees','手續費&交易稅'],['paid_cost','付出成本'],
    ['dividend_gross','現金股息'],['wire_fee','匯費'],['payment_date','預計入帳日'],
    ['payment_confirmed','已確認入帳'],['note','備註']
   ];
@@ -240,7 +240,7 @@ $('backupBoth').onclick=async()=>{if(!cloudDataReady)return msg('雲端資料尚
   msg('已通過 ZIP 內容與交易筆數檢查，並啟動下載（Excel＋JSON＋清單）；請確認檔案已保存。');
  }catch(err){msg('雙重備份失敗：'+err.message,true);}
 };
-$('csv').onclick=()=>{if(!cloudDataReady)return msg('雲端資料尚未完整同步，已阻止不完整備份',true);const cols=['trade_date','ticker','transaction_type','quantity','price','trade_fees','dividend_gross','wire_fee','payment_date','payment_confirmed','note'];const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s)&&isNaN(Number(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};download('lei-stock-'+today()+'.csv','\ufeff'+[cols.join(','),...trades.map(t=>cols.map(k=>safe(t[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8');};
+$('csv').onclick=()=>{if(!cloudDataReady)return msg('雲端資料尚未完整同步，已阻止不完整備份',true);const cols=['trade_date','ticker','transaction_type','quantity','price','trade_fees','paid_cost','dividend_gross','wire_fee','payment_date','payment_confirmed','note'];const safe=v=>{let s=String(v??'');if(/^[=+@\-\t\r]/.test(s)&&isNaN(Number(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};download('lei-stock-'+today()+'.csv','\ufeff'+[cols.join(','),...trades.map(t=>cols.map(k=>safe(t[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8');};
 // Backup restore preflight is strictly local and read-only; never call Supabase writes here.
 $('restorePreviewFile').addEventListener('change',async event=>{
  const file=event.target.files?.[0],out=$('restorePreviewResult');
