@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#55bf91}.calc-metric.loss{border-color:#ee8b91}.calc-metric.profit strong{color:#80dbb3}.calc-metric.loss strong{color:#ff9b9f}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.2 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.6.3 · 測試版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card"><h2>正在恢復登入狀態…</h2><p class="muted">請稍候，不需要重新輸入密碼。</p></section>
@@ -41,7 +41,7 @@
 <script>
 (()=>{'use strict';
 const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
-const $=id=>document.getElementById(id), client=window.supabase?.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'lei-stock-auth-v1'}});
+const $=id=>document.getElementById(id), client=window.supabase?.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let user=null,trades=[],tickers=[],banks=[],prices=[],editing=null;
 const fmt=n=>n==null||n===''?'':Number(n).toLocaleString('zh-TW',{maximumFractionDigits:2});
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
@@ -170,16 +170,19 @@ function showBackupReminder(){
 showBackupReminder();
 reset();if(!client){$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('無法載入 Supabase 函式庫',true);return}
 let initialAuthResolved=false;
+let authBootComplete=false;
+const authFallback=setTimeout(()=>{if(authBootComplete)return;authBootComplete=true;$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態恢復逾時。可嘗試重新登入；若仍異常請回報此訊息。',true);},7000);
+function finishAuthBoot(){authBootComplete=true;clearTimeout(authFallback);}
 client.auth.onAuthStateChange((event,session)=>{
  if(!initialAuthResolved&&event==='INITIAL_SESSION')initialAuthResolved=true;
- const prev=user?.id;user=session?.user||null;authUI();
+ finishAuthBoot();const prev=user?.id;user=session?.user||null;authUI();
  if(user&&user.id!==prev)setTimeout(load,0);
  if(!user){trades=[];tickers=[];banks=[];prices=[];render();}
 });
 client.auth.getSession().then(({data,error})=>{
  if(error)msg('登入狀態恢復失敗：'+error.message,true);
- user=data?.session?.user||null;authUI();if(user)load();
+ finishAuthBoot();user=data?.session?.user||null;authUI();if(user)load();
  else if(!error)msg('目前沒有可恢復的登入狀態；若每次重新整理都發生，請檢查瀏覽器是否允許此網站儲存資料。',true);
-}).catch(err=>{$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態讀取失敗：'+err.message,true);});
+}).catch(err=>{finishAuthBoot();$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態讀取失敗：'+err.message,true);});
 })();
 </script></body></html>
