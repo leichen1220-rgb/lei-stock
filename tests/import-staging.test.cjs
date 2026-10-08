@@ -35,4 +35,7 @@ for(const token of [
 ])assert.ok(commitSql.includes(token),'Missing commit safety invariant: '+token);
 assert.ok(!/delete\\s+from\\s+public\\.stock_transactions/i.test(commitSql),'Commit must not delete existing transactions');
 assert.ok(!/truncate\\s+public\\.stock_transactions/i.test(commitSql),'Commit must not truncate existing transactions');
+assert.ok(commitSql.includes("then raise exception 'Invalid staged financial values'"),'Reject invalid financial values');
+assert.ok(commitSql.includes("([.][0-9]+)?"),'Numeric regex should use literal dot class');
+assert.ok(!commitSql.includes('\\\\.'),'Do not use double-backslash regex escapes in PostgreSQL');
 console.log('PASS: SQL staging and commit static safety checks (database execution not tested)');
