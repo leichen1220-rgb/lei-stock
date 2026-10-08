@@ -58,6 +58,9 @@ begin
     or coalesce(p_payload_sha256,'') !~ '^[a-f0-9]{64}$'
     or jsonb_typeof(p_rows) is distinct from 'array'
  then raise exception 'Invalid import metadata'; end if;
+ -- The original source hash is an idempotency label supplied by the client,
+ -- NOT proof of the workbook contents. The payload hash is also advisory
+ -- until canonical JSON hashing is implemented and independently verified.
  v_count := jsonb_array_length(p_rows);
  if v_count < 1 or v_count > 20000 then raise exception 'Invalid row count'; end if;
  if exists (
@@ -67,7 +70,87 @@ begin
       or (r.value->>'excel_row') !~ '^[1-9][0-9]*$'
       or jsonb_typeof(r.value->'transaction') <> 'object'
       or nullif(r.value->'transaction'->>'ticker','') is null
+      or (r.value->'transaction'->>'ticker') !~ '^[0-9A-Z]{2,12}
+      or (r.value->'transaction'->>'transaction_type') not in ('現股','現金股息','股票股利')
+ ) then raise exception 'Invalid import row'; end if;
+ select count(distinct (r.value->>'excel_row')::integer) into v_distinct
+ from jsonb_array_elements(p_rows) as r(value);
+ if v_distinct <> v_count then raise exception 'Duplicate Excel row numbers'; end if;
+
+ -- Repeated identical requests return the same staging batch, never duplicate it.
+ insert into public.stock_import_batches
+ (owner_id,source_name,source_sha256,payload_sha256,row_count)
+ values(v_owner,p_source_name,p_source_sha256,p_payload_sha256,v_count)
+ on conflict(owner_id,source_sha256,payload_sha256) do nothing
+ returning id into v_batch;
+ if v_batch is null then
+   select id into v_batch from public.stock_import_batches
+   where owner_id=v_owner and source_sha256=p_source_sha256 and payload_sha256=p_payload_sha256;
+   if not exists(select 1 from public.stock_import_batches
+     where id=v_batch and state='staged' and row_count=v_count)
+   then raise exception 'Existing import batch cannot be reused'; end if;
+   select count(*) into v_actual from public.stock_import_stage_rows where batch_id=v_batch;
+   if v_actual <> v_count then raise exception 'Existing batch row count mismatch'; end if;
+   return jsonb_build_object('batch_id',v_batch,'rows',v_actual,'reused',true,'state','staged');
+ end if;
+
+ insert into public.stock_import_stage_rows(batch_id,owner_id,excel_row,transaction_data)
+ select v_batch,v_owner,(r.value->>'excel_row')::integer,r.value->'transaction'
+ from jsonb_array_elements(p_rows) as r(value);
+ get diagnostics v_actual = row_count;
+ if v_actual <> v_count then raise exception 'Stage row count mismatch'; end if;
+ return jsonb_build_object('batch_id',v_batch,'rows',v_actual,'reused',false,'state','staged');
+end $$;
+
+revoke all on function public.stock_stage_import(text,text,text,jsonb) from public,anon;
+grant execute on function public.stock_stage_import(text,text,text,jsonb) to authenticated;
+commit;
+
+-- IMPORTANT: this function stages data ONLY; a separate verified commit function
+-- is required to move rows to stock_transactions atomically.
+
       or nullif(r.value->'transaction'->>'trade_date','') is null
+      or (r.value->'transaction'->>'trade_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}
+      or (r.value->'transaction'->>'transaction_type') not in ('現股','現金股息','股票股利')
+ ) then raise exception 'Invalid import row'; end if;
+ select count(distinct (r.value->>'excel_row')::integer) into v_distinct
+ from jsonb_array_elements(p_rows) as r(value);
+ if v_distinct <> v_count then raise exception 'Duplicate Excel row numbers'; end if;
+
+ -- Repeated identical requests return the same staging batch, never duplicate it.
+ insert into public.stock_import_batches
+ (owner_id,source_name,source_sha256,payload_sha256,row_count)
+ values(v_owner,p_source_name,p_source_sha256,p_payload_sha256,v_count)
+ on conflict(owner_id,source_sha256,payload_sha256) do nothing
+ returning id into v_batch;
+ if v_batch is null then
+   select id into v_batch from public.stock_import_batches
+   where owner_id=v_owner and source_sha256=p_source_sha256 and payload_sha256=p_payload_sha256;
+   if not exists(select 1 from public.stock_import_batches
+     where id=v_batch and state='staged' and row_count=v_count)
+   then raise exception 'Existing import batch cannot be reused'; end if;
+   select count(*) into v_actual from public.stock_import_stage_rows where batch_id=v_batch;
+   if v_actual <> v_count then raise exception 'Existing batch row count mismatch'; end if;
+   return jsonb_build_object('batch_id',v_batch,'rows',v_actual,'reused',true,'state','staged');
+ end if;
+
+ insert into public.stock_import_stage_rows(batch_id,owner_id,excel_row,transaction_data)
+ select v_batch,v_owner,(r.value->>'excel_row')::integer,r.value->'transaction'
+ from jsonb_array_elements(p_rows) as r(value);
+ get diagnostics v_actual = row_count;
+ if v_actual <> v_count then raise exception 'Stage row count mismatch'; end if;
+ return jsonb_build_object('batch_id',v_batch,'rows',v_actual,'reused',false,'state','staged');
+end $$;
+
+revoke all on function public.stock_stage_import(text,text,text,jsonb) from public,anon;
+grant execute on function public.stock_stage_import(text,text,text,jsonb) to authenticated;
+commit;
+
+-- IMPORTANT: this function stages data ONLY; a separate verified commit function
+-- is required to move rows to stock_transactions atomically.
+
+      or (r.value->'transaction' ? 'owner_id')
+      or (r.value->'transaction' ? 'id')
       or (r.value->'transaction'->>'transaction_type') not in ('現股','現金股息','股票股利')
  ) then raise exception 'Invalid import row'; end if;
  select count(distinct (r.value->>'excel_row')::integer) into v_distinct
