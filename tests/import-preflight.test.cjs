@@ -23,9 +23,9 @@ assert.ok(html.includes('internalConflictCodes.add(code)'),'Internal name confli
 assert.ok(html.includes('cloudConflictCodes.add(code)'),'Cloud name conflicts must be tracked by exact code');
 assert.ok(html.includes('new Set([...internalConflictCodes,...cloudConflictCodes])'),'Conflict detection must not parse display messages');
 assert.ok(!html.includes('new Set(nameIssues.map(issue=>'),'Conflict detection must not depend on warning text');
-assert.ok(html.includes("const waitingRows=suspect.filter"),'Pending trade plans must be classified separately');
-assert.ok(html.includes("const refundRows=suspect.filter"),'Capital refunds must be classified separately');
-assert.ok(html.includes("const remainingSuspect=suspect.filter(item=>!specialRows.has(item))"),'Recognized special rows must not be reported as unknown trades');
+assert.ok(html.includes("const waitingRows=candidateRows.filter"),'Pending trade plans must be classified separately');
+assert.ok(html.includes("const refundRows=candidateRows.filter"),'Capital refunds must be classified separately');
+assert.ok(html.includes("const executableRows=candidateRows.filter(item=>!specialRows.has(item))"),'Recognized special rows must not be reported as unknown trades');
 assert.ok(html.includes("等待不代表成交"),'Pending trades must not be counted as executed');
 assert.ok(html.includes('const reviewByRow=new Map()'),'Review queue must group reasons per Excel row');
 assert.ok(html.includes('reviewRows.map(([position,reasons])'),'Every flagged row must be rendered');
