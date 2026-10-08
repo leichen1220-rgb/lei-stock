@@ -17,3 +17,4 @@ jobs:
       - run: node tests/cost-ledger.test.cjs
       - run: node tests/import-preflight.test.cjs
       - run: node tests/import-staging.test.cjs
+      - run: node tests/paid-cost-migration.test.cjs
