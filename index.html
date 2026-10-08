@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.13.4 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.13.5 · 驗收準備版｜雲端紀錄 · 交易明細 · 股息提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -594,6 +594,15 @@ $('excelFile').addEventListener('change',async e=>{
    importPlan.payload_sha256=hex(await crypto.subtle.digest('SHA-256',
     new TextEncoder().encode(JSON.stringify(importPlan.rows))));
   }
+  importPlan.blockers=[...blockers];
+  // Check the explicit database payload contract and Excel row identity.
+  const allowedImportKeys=new Set(['trade_date','ticker','transaction_type','quantity','price',
+   'trade_fees','dividend_gross','wire_fee','payment_date','note','sequence_no']);
+  const payloadKeyErrors=importPlan.rows.filter(({excel_row,transaction})=>
+   !Number.isSafeInteger(excel_row)||excel_row<=0||
+   Object.keys(transaction).some(key=>!allowedImportKeys.has(key))||
+   transaction.sequence_no!==excel_row);
+  if(payloadKeyErrors.length)blockers.push('匯入欄位或原始列號不一致：'+payloadKeyErrors.length+' 筆');
   importPlan.blockers=[...blockers];
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
