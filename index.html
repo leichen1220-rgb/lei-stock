@@ -293,7 +293,11 @@ $('excelFile').addEventListener('change',async e=>{
   }
   const possibleDuplicates=[...duplicateGroups.values()].filter(positions=>positions.length>1);
   const duplicateRowCount=possibleDuplicates.reduce((count,positions)=>count+positions.length,0);
-  const duplicatePreview='<p><strong>疑似重複交易（僅提醒、不刪除）：</strong>'+possibleDuplicates.length+' 組、共 '+duplicateRowCount+' 列。比對日期、代號、交易別、股數與成交價；同日同股但不同數量或價格不會視為同一組。</p>'+
+  const existingKeys=new Set(trades.map(t=>[t.trade_date,t.ticker,t.transaction_type,t.quantity,t.price].map(canonical).join('¦')));
+  // Dates and amounts in the original workbook may use different display formats.
+  // An apparent cloud match is a review candidate, never an automatic skip.
+  const potentialCloudMatches=valid.filter(({row})=>existingKeys.has(signature(row)));
+  const duplicatePreview='<p><strong>疑似重複交易（僅提醒、不刪除）：</strong>Excel 內 '+possibleDuplicates.length+' 組、共 '+duplicateRowCount+' 列；與雲端資料表面相同 '+potentialCloudMatches.length+' 列。比對日期、代號、交易別、股數與成交價；同日同股但不同數量或價格不會視為同一組。</p>'+
    (possibleDuplicates.length?'<p>疑似重複的 Excel 列號：'+possibleDuplicates.slice(0,10).map(positions=>esc(positions.join('、'))).join('；')+(possibleDuplicates.length>10?'；其餘 '+(possibleDuplicates.length-10)+' 組':'')+'</p>':'');
   // The dedicated stock-code sheet is authoritative for name mappings; never import from a guessed column.
   const nameSheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
