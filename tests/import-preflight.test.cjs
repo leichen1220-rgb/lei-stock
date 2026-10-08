@@ -60,6 +60,9 @@ assert.ok(html.includes("const importDisposition=["),'All source rows must recei
 assert.ok(html.includes("const unaccounted=sourceRows.filter(x=>!accounted.has(x.position))"),'Unclassified Excel rows must be detected');
 assert.ok(html.includes("if(unaccounted.length||duplicates||accounted.size!==sourceRows.length)"),'Missing or double-classified rows must block import');
 assert.ok(html.includes("unaccounted_rows:unaccounted.map(x=>x.position)"),'Export must identify unclassified original Excel rows');
+assert.ok(html.includes('const allowedImportKeys=new Set('),'Import keys must be whitelisted');
+assert.ok(html.includes('transaction.sequence_no!==excel_row'),'Source row sequence must match Excel row');
+assert.ok(html.includes('Object.keys(transaction).some(key=>!allowedImportKeys.has(key))'),'Reject unexpected database payload keys');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
