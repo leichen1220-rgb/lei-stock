@@ -71,4 +71,22 @@ assert.notEqual(x.signatureParts('2026/9/1','6201','股票股利',100,null),x.si
 assert.equal(x.signatureParts('2026/9/1','0056','現金股息',null,null,105,5),x.signatureParts('2026/9/1','0056','現金股息',null,null,105,5));
 assert.notEqual(x.signatureParts('2026/9/1','0056','現金股息',null,null,105,5),x.signatureParts('2026/9/1','0056','現金股息',null,null,100,5));
 assert.equal(x.signature([46000,'0056','現金股息',null,null,100,5]),x.signatureParts(46000,'0056','現金股息',null,null,105,5));
+// Exercise the actual classification block, not just string matching.
+const classificationStart=html.indexOf("  const validTypes=new Set(['現股','現金股息','股票股利']);");
+const classificationEnd=html.indexOf('  const pendingPreview=',classificationStart);
+assert.ok(classificationStart>0&&classificationEnd>classificationStart,'Classification source block exists');
+const classify=new Function('rows','headerIndex','idx','codeCol','typeCol','dateCol',
+ html.slice(classificationStart,classificationEnd)+';return {waitingRows,refundRows,valid,missingCodeRows,needsReview};');
+const sample=[
+ {row:['6201','現股','已成交','2026-10-01'],excelRow:10},
+ {row:['006201','現股','等待','2026-10-02'],excelRow:11},
+ {row:['6201','增資退款','已成交','2026-10-03'],excelRow:12},
+ {row:['','現股','已成交','2026-10-04'],excelRow:13}
+];
+const sampleResult=classify(sample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3);
+assert.deepEqual(sampleResult.waitingRows.map(x=>x.position),[11]);
+assert.deepEqual(sampleResult.refundRows.map(x=>x.position),[12]);
+assert.deepEqual(sampleResult.valid.map(x=>x.position),[10]);
+assert.deepEqual(sampleResult.missingCodeRows.map(x=>x.position),[13]);
+assert.deepEqual(sampleResult.needsReview.map(x=>x.position),[]);
 console.log('PASS: Excel preflight normalization and source-format guards');
