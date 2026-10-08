@@ -361,9 +361,10 @@ $('excelFile').addEventListener('change',async e=>{
   const payoutCol=idx('入賬時間','入帳時間','預計入帳日','入帳日','配息入帳日');
   const noteCol=idx('備註','註記');
   const paidCostCol=idx('付出成本','已付出成本','實際付出成本','成交總成本');
+  const paidCostNumberKey=v=>{const raw=String(v??'').trim().replace(/,/g,'');if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;const n=Number(raw);return Number.isFinite(n)?String(n):null;};
   const row558=candidateRows.find(item=>item.position===558);
   const paidCost558Raw=paidCostCol>=0&&row558?row558.row[paidCostCol]:null;
-  const paidCost558Source=paidCost558Raw===null?null:numberKey(paidCost558Raw);
+  const paidCost558Source=paidCost558Raw===null?null:paidCostNumberKey(paidCost558Raw);
   const paidCost558Review=originalReviewMatches&&row558&&normalizeTicker(row558.row[codeCol])==='6175'?{excel_row:558,ticker:'6175',confirmed_paid_cost:5512,source_column:paidCostCol>=0?header[paidCostCol]:null,source_value:paidCost558Source===null?String(paidCost558Raw??''):Number(paidCost558Source),applied_to_transaction:false}:null;
   // Record every source paid-cost cell by original Excel row, not only the
   // manually reviewed row. These values are audit metadata, not trade prices.
@@ -373,7 +374,7 @@ $('excelFile').addEventListener('change',async e=>{
    const raw=paidCostCol>=0?row[paidCostCol]:null;
    const sourceText=String(raw??'').trim();
    if(!sourceText)continue;
-   const parsed=numberKey(raw);
+   const parsed=paidCostNumberKey(raw);
    if(parsed===null||!Number.isFinite(Number(parsed))||Number(parsed)<0){
     paidCostInvalidRows.push({excel_row:position,source_value:sourceText});
    }else{
