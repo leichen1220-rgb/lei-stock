@@ -157,7 +157,7 @@ assert.ok(html.includes("normalizeTicker(row558.row[codeCol])==='2327'"),'Row 55
 assert.ok(html.includes("ticker:'2327',confirmed_paid_cost:5512"),'Row 558 verified cost must use exact ticker');
 assert.ok(html.includes('const reviewedPaidCostRows=paidCost558Review?'),'Reviewed cost must survive blank/formula source cells');
 assert.ok(html.includes('reviewed_rows:reviewedPaidCostRows'),'Exported audit must retain confirmed cost independently');
-assert.ok(html.includes("blockers.push('第 558 列付出成本 5,512 元尚無雲端欄位可保存"),'No staging until cost can be persisted');
+assert.ok(html.includes("client.rpc('stock_paid_cost_readiness')"),'Staging must verify cost storage capability before writing');
 assert.ok(html.includes('importPlan.blockers=[...blockers];'),'Final blockers must be copied to export');
 
 assert.ok(html.includes('trade_fees:fees,paid_cost:paidCost'),'Converted trades must carry separate paid cost');
