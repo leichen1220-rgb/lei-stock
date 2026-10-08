@@ -159,3 +159,10 @@ assert.ok(html.includes('const reviewedPaidCostRows=paidCost558Review?'),'Review
 assert.ok(html.includes('reviewed_rows:reviewedPaidCostRows'),'Exported audit must retain confirmed cost independently');
 assert.ok(html.includes("blockers.push('第 558 列付出成本 5,512 元尚無雲端欄位可保存"),'No staging until cost can be persisted');
 assert.ok(html.includes('importPlan.blockers=[...blockers];'),'Final blockers must be copied to export');
+
+assert.ok(html.includes('trade_fees:fees,paid_cost:paidCost'),'Converted trades must carry separate paid cost');
+assert.ok(html.includes("!profitStatuses.has(excelStatus)"),'Profit-status cells must not be guessed as paid cost');
+assert.ok(html.includes('position===558?'),'Confirmed Excel 558 cost must override source only for exact row');
+assert.ok(html.includes("'trade_fees','paid_cost','dividend_gross'"),'Paid cost must be whitelisted');
+assert.ok(html.includes("client.rpc('stock_paid_cost_readiness')"),'Staging must verify paid-cost SQL migration');
+assert.ok(html.includes("requires_sql_migration:'sql/06_paid_cost_and_import_commit.sql'"),'Dry run must disclose required migration');
