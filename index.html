@@ -390,8 +390,11 @@ $('excelFile').addEventListener('change',async e=>{
    const sourceText=String(raw??'').trim();
    const status=statusCol>=0?String(row[statusCol]??'').trim():'';
    const parsed=paidCostNumberKey(raw);
-   if(profitStatuses.has(status)&&parsed===null){
-    paidCostProfitRows.push({excel_row:position,status,source_value:sourceText});
+   if(profitStatuses.has(status)){
+    // Numeric cells in profit-status rows may also be realized P/L, not
+    // acquisition cost. Keep their raw and parsed values in a separate audit.
+    paidCostProfitRows.push({excel_row:position,status,source_value:sourceText,
+     numeric_value:parsed===null?null:Number(parsed)});
     continue;
    }
    if(!sourceText)continue;
@@ -413,7 +416,7 @@ $('excelFile').addEventListener('change',async e=>{
   }]:[];
   const paidCostAudit='<p>付出成本獨立核對：'+
    (paidCostCol>=0?'已辨識 '+esc(header[paidCostCol])+' 欄。':'尚未辨識付出成本欄。')+
-   '來源現股成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態的非數字或空白成本另列 '+paidCostProfitRows.length+' 列（數字成本仍保留核對）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
+   '非獲利狀態的現股付出成本有值 '+paidCostRows.length+' 列；獲利／當沖獲利狀態另列 '+paidCostProfitRows.length+' 列（含數字與公式結果，僅供核對，不當作買入成本）；其他狀態無法解析 '+paidCostInvalidRows.length+' 列。'+
    (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
    (paidCostProfitRows.length?'獲利類列號（僅供核對）：'+paidCostProfitRows.slice(0,18).map(x=>x.excel_row+'（'+esc(x.status)+'）').join('、')+(paidCostProfitRows.length>18?' 等':'')+'。':'')+
    (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
