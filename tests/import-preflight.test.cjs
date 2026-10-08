@@ -124,7 +124,7 @@ assert.ok(html.includes("const paidCostCol=idx('付出成本'"),'Independent pai
 assert.ok(html.includes('confirmed_paid_cost:5512'),'Original row 558 correction must be retained');
 assert.ok(html.includes('applied_to_transaction:false'),'Paid cost must not be silently mapped into transaction price or fees');
 assert.ok(html.includes('paid_cost_audit:{column_recognized:'),'Dry-run report must preserve cost reconciliation status');
-assert.ok(html.includes('reviewedCorrectionsPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
+assert.ok(html.includes('reviewedCorrectionsPreview+correctionDiagnosticPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
 assert.ok(html.includes('const paidCostRows=[],paidCostInvalidRows=[],paidCostProfitRows=[]'),'Audit all source cost rows');
 assert.ok(html.includes('reviewed_paid_cost:paidCost558Review&&position===558?5512:null'),'Reviewed cost must be recorded separately from source value');
 assert.ok(html.includes('invalid_rows:paidCostInvalidRows'),'Invalid paid-cost values must be visible in exported plan');
