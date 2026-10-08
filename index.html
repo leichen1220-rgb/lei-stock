@@ -567,7 +567,7 @@ $('excelFile').addEventListener('change',async e=>{
   ].sort((a,b)=>a.excel_row-b.excel_row);
   const sourceRows=candidateRows.filter(({row})=>row.some(c=>String(c??'').trim()!==''));
   const accounted=new Set(importDisposition.map(x=>x.excel_row));
-  const unaccounted=sourceRows.filter(x=>!accounted.has(x.excelRow));
+  const unaccounted=sourceRows.filter(x=>!accounted.has(x.position));
   const duplicates=importDisposition.length-accounted.size;
   if(unaccounted.length||duplicates||accounted.size!==sourceRows.length){
    blockers.push('來源資料列核對失敗：未分類 '+unaccounted.length+' 列、重複分類 '+duplicates+' 列；禁止正式匯入');
@@ -582,7 +582,7 @@ $('excelFile').addEventListener('change',async e=>{
    blockers:[...blockers],
    source_row_count:sourceRows.length,
    disposition:importDisposition,
-   unaccounted_rows:unaccounted.map(x=>x.excelRow),
+   unaccounted_rows:unaccounted.map(x=>x.position),
    rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))
   };
   // Hash exactly the original workbook bytes and the staged row payload.
