@@ -56,6 +56,10 @@ assert.ok(html.includes('失敗時整批回滾'),'Atomic import requirement must
 assert.ok(html.includes("crypto.subtle.digest('SHA-256',bytes)"),'Source fingerprint must hash raw workbook bytes');
 assert.ok(html.includes("new TextEncoder().encode(JSON.stringify(importPlan.rows))"),'Payload fingerprint must hash exact staging rows');
 assert.ok(html.includes("importPlan.blockers=[...blockers]"),'Hashing errors must update import blockers');
+assert.ok(html.includes("const importDisposition=["),'All source rows must receive an explicit disposition');
+assert.ok(html.includes("const unaccounted=sourceRows.filter(x=>!accounted.has(x.position))"),'Unclassified Excel rows must be detected');
+assert.ok(html.includes("if(unaccounted.length||duplicates||accounted.size!==sourceRows.length)"),'Missing or double-classified rows must block import');
+assert.ok(html.includes("unaccounted_rows:unaccounted.map(x=>x.position)"),'Export must identify unclassified original Excel rows');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
