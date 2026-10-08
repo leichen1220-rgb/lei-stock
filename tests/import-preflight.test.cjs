@@ -53,6 +53,9 @@ assert.ok(html.includes('dry_run:true,cloud_write_performed:false'),'Import plan
 assert.ok(html.includes('rows:convertedTrades.map(({excel_row,...transaction})=>({excel_row,transaction}))'),'Source row must be kept outside database payload');
 assert.ok(html.includes('id="exportImportPlan"'),'Import plan must be downloadable');
 assert.ok(html.includes('失敗時整批回滾'),'Atomic import requirement must be visible');
+assert.ok(html.includes("crypto.subtle.digest('SHA-256',bytes)"),'Source fingerprint must hash raw workbook bytes');
+assert.ok(html.includes("new TextEncoder().encode(JSON.stringify(importPlan.rows))"),'Payload fingerprint must hash exact staging rows');
+assert.ok(html.includes("importPlan.blockers=[...blockers]"),'Hashing errors must update import blockers');
 const start=html.indexOf('  const canonical=v=>',html.indexOf('// Compare only unambiguous dates'));
 const end=html.indexOf('  const dateAudit={missing:[],invalid:[]};',start);
 assert.ok(start>0&&end>start,'Excel normalization helpers must exist');
