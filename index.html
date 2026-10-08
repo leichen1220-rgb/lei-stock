@@ -288,13 +288,12 @@ $('excelFile').addEventListener('change',async e=>{
   const wireCol=idx('匯費','匯款費');
   const payoutCol=idx('預計入帳日','入帳日','配息入帳日');
   const noteCol=idx('備註','註記');
-  const audit={tradeMissingFee:[],dividendMissingAmount:[],stockDividendMissingQty:[],sellPositiveQty:[],invalidWire:[],unmapped:[]};
+  const audit={tradeMissingFee:[],dividendMissingAmount:[],stockDividendMissingQty:[],invalidWire:[],};
   for(const {row,position} of valid){
    const type=String(row[typeCol]||'').trim(),qty=String(row[sharesCol]??'').replace(/,/g,'').trim();
    const quantity=qty===''?NaN:Number(qty);
    if(type==='現股'){
     if(feeCol<0||String(row[feeCol]??'').trim()==='')audit.tradeMissingFee.push(position);
-    if(Number.isFinite(quantity)&&quantity<0){} // A negative quantity is a normal sell.
    }else if(type==='現金股息'){
     if(dividendCol<0||String(row[dividendCol]??'').trim()==='')audit.dividendMissingAmount.push(position);
    }else if(type==='股票股利'&&(!Number.isFinite(quantity)||quantity<=0))audit.stockDividendMissingQty.push(position);
