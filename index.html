@@ -618,6 +618,7 @@ $('excelFile').addEventListener('change',async e=>{
    ...valid.map(x=>({excel_row:x.position,kind:'成交候選'})),
    ...waitingRows.map(x=>({excel_row:x.position,kind:'等待計畫'})),
    ...refundRows.map(x=>({excel_row:x.position,kind:'增資退款'})),
+   ...confirmedDuplicateRows.map(x=>({excel_row:x.position,kind:'已確認重複，排除'})),
    ...missingCodeRows.map(x=>({excel_row:x.position,kind:'缺少代號'})),
    ...needsReview.map(x=>({excel_row:x.position,kind:'未辨識交易'})),
    ...footerRows.map(x=>({excel_row:x.position,kind:'非交易計算列'}))
