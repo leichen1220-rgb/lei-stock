@@ -94,7 +94,7 @@ assert.equal(x.signature([46000,'0056','現金股息',null,null,100,5]),x.signat
 const classificationStart=html.indexOf("  const validTypes=new Set(['現股','現金股息','股票股利']);");
 const classificationEnd=html.indexOf('  const pendingPreview=',classificationStart);
 assert.ok(classificationStart>0&&classificationEnd>classificationStart,'Classification source block exists');
-const classify=new Function('rows','headerIndex','idx','codeCol','typeCol','dateCol',
+const classify=new Function('rows','headerIndex','idx','codeCol','typeCol','dateCol','workbookSha','originalWorkbookSha','normalizeTicker',
  html.slice(classificationStart,classificationEnd)+';return {waitingRows,refundRows,valid,missingCodeRows,needsReview};');
 const sample=[
  {row:['6201','現股','已成交','2026-10-01'],excelRow:10},
@@ -102,7 +102,7 @@ const sample=[
  {row:['6201','增資退款','已成交','2026-10-03'],excelRow:12},
  {row:['','現股','已成交','2026-10-04'],excelRow:13}
 ];
-const sampleResult=classify(sample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3);
+const sampleResult=classify(sample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,null,'original-sha',v=>String(v).trim().toUpperCase());
 assert.deepEqual(sampleResult.waitingRows.map(x=>x.position),[11]);
 assert.deepEqual(sampleResult.refundRows.map(x=>x.position),[12]);
 assert.deepEqual(sampleResult.valid.map(x=>x.position),[10]);
