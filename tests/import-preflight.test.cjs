@@ -129,4 +129,12 @@ assert.ok(html.includes('const paidCostRows=[],paidCostInvalidRows=[]'),'Audit a
 assert.ok(html.includes('reviewed_paid_cost:paidCost558Review&&position===558?5512:null'),'Reviewed cost must be recorded separately from source value');
 assert.ok(html.includes('invalid_rows:paidCostInvalidRows'),'Invalid paid-cost values must be visible in exported plan');
 assert.ok(html.includes('importPlan.production_import_blockers='),'Production cost reconciliation must remain explicitly blocked');
+const tickerNormalizerPosition=html.indexOf('const normalizeTicker=');
+const refundCheckPosition=html.indexOf('const verifiedRefund=item=>');
+const paidCostParserPosition=html.indexOf('const paidCostNumberKey=');
+const paidCostReviewPosition=html.indexOf('const paidCost558Source=');
+assert.ok(tickerNormalizerPosition>0&&tickerNormalizerPosition<refundCheckPosition,'Ticker normalization must be initialized before refund and duplicate classification');
+assert.ok(paidCostParserPosition>0&&paidCostParserPosition<paidCostReviewPosition,'Paid-cost numeric parser must be initialized before row 558 review');
+assert.ok(html.includes('const parsed=paidCostNumberKey(raw);'),'All paid-cost rows must use initialized numeric parser');
+assert.ok(!html.includes('const paidCost558Source=paidCost558Raw===null?null:numberKey('),'Avoid using later-initialized numeric helper during paid-cost review');
 console.log('PASS: Excel preflight normalization and source-format guards');
