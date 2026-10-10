@@ -37,8 +37,17 @@
 .actions>.clearable-input{flex:1 1 180px}
 .clear-input-button{flex:0 0 36px;width:36px;min-height:40px;padding:0;border:0;background:transparent;color:#a6aec3;font-size:23px;line-height:1}
 .clear-input-button:hover,.clear-input-button:focus-visible{background:#343b51;color:#fff}
+.bank-table-wrap{overflow-x:auto;margin-top:8px}
+.bank-table{table-layout:fixed;white-space:normal;width:100%}
+.bank-table th,.bank-table td{padding:9px 6px;font-size:13px;line-height:1.45;vertical-align:top;overflow-wrap:anywhere}
+.bank-table th{font-size:12px}
+.bank-stock-name,.bank-note,.bank-account{display:block;margin-top:3px}
+.bank-note,.bank-account{font-size:11px;color:#a6aec3;white-space:pre-wrap}
+.bank-row-actions summary{cursor:pointer;font-size:11px;white-space:nowrap}
+.bank-row-actions button{display:block;padding:5px 4px;margin-top:6px;font-size:11px;width:100%}
+@media(max-width:550px){.bank-table th,.bank-table td{padding:8px 4px;font-size:12px}.bank-table th{font-size:11px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.5 · Excel 銀行備忘匯入</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.6 · 銀行備忘緊湊表格</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -452,8 +461,13 @@ $('bankImportButton').onclick=async()=>{
 };
 function bankListHTML(items){
  if(!items.length)return '<p class="muted">目前沒有銀行備忘。</p>';
- return '<p class="muted">已儲存 '+items.length+' 筆銀行備忘</p>'+items.slice().sort((a,b)=>a.ticker.localeCompare(b.ticker)).map(b=>'<div class="card"><strong>'+esc(b.ticker)+(nameOf(b.ticker)==='—'?'':' '+esc(nameOf(b.ticker)))+'</strong><p>保管銀行：'+esc(b.custodian_bank||'未填')+'<br>入帳銀行：'+esc(b.payout_bank||'未填')+'<br>帳號末四碼：'+esc(b.account_last4||'未填')+'</p>'+(b.note?'<p style="white-space:pre-wrap">備註：'+esc(b.note)+'</p>':'')+'<div class="actions"><button type="button" data-bank-edit="'+esc(b.ticker)+'">編輯</button><button type="button" class="danger" data-bank-delete="'+esc(b.ticker)+'">刪除</button></div></div>').join('');
+ const rows=items.slice().sort((a,b)=>a.ticker.localeCompare(b.ticker)).map(b=>{
+  const name=nameOf(b.ticker),note=b.note?String(b.note).replace(/^配息頻率[:：]\s*/,''):'';
+  return '<tr><td><strong>'+esc(b.ticker)+'</strong>'+(name==='—'?'':'<span class="bank-stock-name">'+esc(name)+'</span>')+(note?'<span class="bank-note">'+esc(note)+'</span>':'')+'</td><td>'+esc(b.custodian_bank||'未填')+'</td><td>'+esc(b.payout_bank||'未填')+'<span class="bank-account">末四碼 '+esc(b.account_last4||'未填')+'</span></td><td><details class="bank-row-actions"><summary>操作</summary><button type="button" data-bank-edit="'+esc(b.ticker)+'">編輯</button><button type="button" class="danger" data-bank-delete="'+esc(b.ticker)+'">刪除</button></details></td></tr>';
+ }).join('');
+ return '<p class="muted">已儲存 '+items.length+' 筆銀行備忘</p><div class="bank-table-wrap"><table class="bank-table"><colgroup><col style="width:36%"><col style="width:22%"><col style="width:26%"><col style="width:16%"></colgroup><thead><tr><th>股票／配息</th><th>保管銀行</th><th>入帳銀行</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+
 function resetBankForm(){ $('bankEditor').open=false;editingBank=null;$('bankform').reset();$('bankform').elements.ticker.readOnly=false;$('bankFormTitle').textContent='ETF 銀行備忘';$('bankSaveButton').textContent='儲存銀行資料';$('bankCancelButton').classList.add('hidden');}
 function editBank(ticker){
  if(bankBusy||!user)return;
