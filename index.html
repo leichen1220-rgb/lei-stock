@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.3 · 股票名稱可從 Excel 批次補齊</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.4 · 完整代碼表批次載入</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -14,7 +14,7 @@
 <nav><button data-page="trades" class="active">股票明細</button><button data-page="overview">持股總覽</button><button data-page="dividends">股息提醒</button><button data-page="other">其他資料</button></nav>
 <section id="trades" class="page"><div class="card"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div class="grid">
 <label class="field">日期<input name="trade_date" type="date" required></label>
-<label class="field">股票代號<input name="ticker" required maxlength="16" placeholder="0056"></label>
+<label class="field">股票代號<input name="ticker" required maxlength="16" placeholder="0056"><span id="tradeTickerName" class="muted" aria-live="polite"></span></label>
 <label class="field">交易別<select name="transaction_type"><option>現股</option><option>現金股息</option><option>股票股利</option></select></label>
 <label class="field" data-types="現股,股票股利">股數（賣出填負數）<input name="quantity" type="number" step="any"></label>
 <label class="field" data-types="現股">成交價<input name="price" type="number" min="0" step="any"></label>
@@ -29,7 +29,7 @@
 <section id="overview" class="page hidden"><div class="card"><h2>持股總覽</h2><p class="muted">股數依交易順序累計；成本暫不提供，待與原 Excel 公式核對後啟用。收盤價為手動登錄，不冒充即時行情。</p><div class="grid" id="stats"></div><div id="ledgerAudit" class="muted"></div><details class="card"><summary>成本與已實現損益試算（尚未驗收）</summary><p class="muted">暫以移動平均成本法計算：買入成本含已記錄費用、賣出收入扣已記錄費用、股票股利增加股數但不增加成本；現金股息另計。費用欄位若未填，該檔成本與損益將顯示待核對，不會將未知費用當作 0。尚未處理減資、分割、特殊權益事件，也尚未與原 Excel 核對。</p><div id="costPreviewWarnings" class="muted"></div><div class="scroll"><table><thead><tr><th>代號</th><th>剩餘股數</th><th>剩餘成本（試算）</th><th>每股均價（試算）</th><th>已實現損益（試算）</th></tr></thead><tbody id="costPreviewBody"></tbody></table></div></details><div class="scroll"><table><thead><tr><th>代號</th><th>名稱</th><th>股數</th><th>累計淨股息</th><th>收盤價</th><th>報價日期</th><th>市值</th><th></th></tr></thead><tbody id="holdingbody"></tbody></table></div></div></section>
 <section id="dividends" class="page hidden"><div class="card"><h2>股息入帳待確認</h2><p class="muted">預計入帳日的隔天開始提醒；確認入帳與匯費為不同欄位。提醒僅在開啟網站時顯示。</p><div id="reminders"></div></div></section>
 <section id="other" class="page hidden">
-<div class="card"><h2>股票名稱對照</h2><form id="tickerform" class="actions"><input name="ticker" placeholder="代號" required><input name="display_name" placeholder="股票名稱" required><button class="primary">新增／更新</button></form><div id="tickerlist"></div><h3>從 Excel 批次補齊名稱</h3><p class="muted">選擇原始「股票(5).xlsx」，一次補齊交易用到的股票名稱。已存的名稱會保留。</p><input id="nameExcelFile" type="file" accept=".xlsx,.xls"><p id="nameImportStatus" class="muted" aria-live="polite">尚未選擇原始 Excel</p><button id="importMissingNames" type="button" class="primary" disabled>批次補齊缺少的名稱</button></div>
+<div class="card"><h2>股票名稱對照</h2><form id="tickerform" class="actions"><input name="ticker" placeholder="代號" required><input name="display_name" placeholder="股票名稱" required><button class="primary">新增／更新</button></form><input id="tickerLookupSearch" placeholder="搜尋代號／名稱" aria-label="搜尋名稱對照"><div id="tickerlist"></div><h3>從 Excel 載入完整代碼表</h3><p class="muted">選擇原始「股票(5).xlsx」，一次載入整張「個股代號」表，包含尚未交易的代號。之後新增交易即可對照名稱；已存的名稱會保留。</p><input id="nameExcelFile" type="file" accept=".xlsx,.xls"><p id="nameImportStatus" class="muted" aria-live="polite">尚未選擇原始 Excel</p><button id="importMissingNames" type="button" class="primary" disabled>載入完整代碼表</button></div>
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
 <div class="card"><h2>每日收盤價</h2><p class="muted">僅使用已存入資料庫的每日收盤價；不追蹤盤中即時報價。尚未接通每日收盤價更新服務，缺價會顯示「—」，不會假裝是最新價格。</p><div id="priceStatus" class="muted"></div></div>
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
@@ -120,7 +120,7 @@ async function load(){
  try{
  const [newTrades,newTickers,newBanks,newPrices]=await Promise.all([
  fetchAll('stock_transactions',[['trade_date',true],['sequence_no',true],['id',true]]),
- fetchAll('stock_tickers'),fetchAll('stock_etf_banks'),
+ fetchAll('stock_tickers',[['ticker',true]]),fetchAll('stock_etf_banks'),
  fetchAll('stock_closing_prices',[['price_date',false],['ticker',true]])]);
  if(user?.id!==account)return;
  [trades,tickers,banks,prices]=[newTrades,newTickers,newBanks,newPrices];
@@ -130,7 +130,9 @@ async function load(){
 }
 async function login(signup){if(!client)return msg('Supabase 函式庫載入失敗，請確認網路',true);try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=signup?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});if(error)throw error;if(data?.session?.user){user=data.session.user;authUI();await load();msg('登入成功，已進入股票帳本');}else if(signup){msg('註冊完成；若需要驗證，請先查看信箱');}else{msg('尚未取得有效登入狀態，請重新登入',true);}}catch(e){msg(e.message,true)}}
 $('signin').onclick=()=>login(false);$('signup').onclick=()=>login(true);$('logout').onclick=()=>client.auth.signOut();
-function fields(){const type=document.querySelector('[name=transaction_type]').value;document.querySelectorAll('[data-types]').forEach(x=>{const ok=x.dataset.types.split(',').includes(type);x.classList.toggle('hidden',!ok);if(!ok)x.querySelector('input')?.setAttribute('disabled','');else x.querySelector('input')?.removeAttribute('disabled');});}
+function updateTradeTickerName(){const code=$('tradeform').elements.ticker.value.trim().toUpperCase();$('tradeTickerName').textContent=code?(nameOf(code)==='—'?'代碼表尚無此代號名稱':nameOf(code)):'';}
+$('tradeform').elements.ticker.oninput=updateTradeTickerName;
+function fields(){updateTradeTickerName();const type=document.querySelector('[name=transaction_type]').value;document.querySelectorAll('[data-types]').forEach(x=>{const ok=x.dataset.types.split(',').includes(type);x.classList.toggle('hidden',!ok);if(!ok)x.querySelector('input')?.setAttribute('disabled','');else x.querySelector('input')?.removeAttribute('disabled');});}
 document.querySelector('[name=transaction_type]').onchange=fields;
 function reset(){editing=null;HTMLFormElement.prototype.reset.call($('tradeform'));$('tradeform').elements.trade_date.value=today();$('formtitle').textContent='新增交易';fields();}
 $('resetTradeButton').onclick=reset;
@@ -197,8 +199,9 @@ function renderOverview(){const latestPriceDate=prices.length?String(prices[0].p
  $('costPreviewWarnings').textContent=costAudit.warnings.length?'發現 '+costAudit.warnings.length+' 項提醒／需核對：'+costAudit.warnings.slice(0,5).join('；'):'僅為移動平均成本試算，尚未與原 Excel 核對。';
 }
 function renderReminders(){const due=trades.filter(t=>t.transaction_type==='現金股息'&&t.payment_date&&t.payment_date<today()&&!t.payment_confirmed);$('reminders').innerHTML=due.length?due.map(t=>'<div class="card"><strong>'+esc(t.ticker)+' '+esc(nameOf(t.ticker))+'</strong><p>預計入帳：'+esc(t.payment_date)+'　配息：'+fmt(t.dividend_gross)+'　匯費：'+(t.wire_fee==null?'待填':fmt(t.wire_fee))+'</p><button data-edit="'+esc(t.id)+'">編輯並確認入帳</button></div>').join(''):'目前沒有逾期未確認的股息。';}
-function renderOther(){const sortedTickers=tickers.slice().sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'zh-TW',{numeric:true}));$('tickerlist').innerHTML='<p class="muted">'+tickers.length+' 筆名稱對照（點選代號可帶入上方修改）</p>'+'<div class="scroll">'+sortedTickers.map(t=>'<button type="button" data-ticker-edit="'+esc(t.ticker)+'" title="點選帶入修改" style="margin:3px;padding:7px 10px">'+esc(t.ticker)+' '+esc(t.display_name)+'</button>').join('')+'</div>';$('banklist').innerHTML=banks.map(b=>'<p>'+esc(b.ticker)+'｜'+esc(b.custodian_bank||'')+' → '+esc(b.payout_bank||'')+'｜末四碼 '+esc(b.account_last4||'未填')+'</p>').join('');}
-function render(){renderTrades();renderOverview();renderReminders();renderOther();}
+$('tickerLookupSearch').oninput=()=>renderOther();
+function renderOther(){const query=$('tickerLookupSearch').value.trim().toUpperCase();const sortedTickers=tickers.filter(t=>!query||(t.ticker+' '+t.display_name).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'zh-TW',{numeric:true}));$('tickerlist').innerHTML='<p class="muted">'+tickers.length+' 筆名稱對照（點選代號可帶入上方修改）</p>'+'<p class="muted">符合 '+sortedTickers.length+' 筆，顯示前 50 筆；可搜尋其他代號。</p><div class="scroll">'+sortedTickers.slice(0,50).map(t=>'<button type="button" data-ticker-edit="'+esc(t.ticker)+'" title="點選帶入修改" style="margin:3px;padding:7px 10px">'+esc(t.ticker)+' '+esc(t.display_name)+'</button>').join('')+'</div>';$('banklist').innerHTML=banks.map(b=>'<p>'+esc(b.ticker)+'｜'+esc(b.custodian_bank||'')+' → '+esc(b.payout_bank||'')+'｜末四碼 '+esc(b.account_last4||'未填')+'</p>').join('');}
+function render(){updateTradeTickerName();renderTrades();renderOverview();renderReminders();renderOther();}
 document.body.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.edit)edit(b.dataset.edit);if(b.dataset.del)del(b.dataset.del);if(b.dataset.view){show('trades');$('filter').value=b.dataset.view;renderTrades();}});
 $('tickerlist').addEventListener('click',e=>{const btn=e.target.closest('[data-ticker-edit]');if(!btn)return;const t=tickers.find(x=>x.ticker===btn.dataset.tickerEdit);if(!t)return;const form=$('tickerform');form.elements.namedItem('ticker').value=t.ticker;form.elements.namedItem('display_name').value=t.display_name;form.elements.namedItem('display_name').focus();});
 
@@ -223,7 +226,8 @@ function planMissingNames(rows,requiredCodes,existing){
   else names.set(ticker,display_name);
  }
  const current=new Map(existing.map(t=>[t.ticker,t.display_name])),add=[],missing=[],conflicts=[];
- for(const ticker of new Set(requiredCodes)){
+ const codes=new Set(requiredCodes??names.keys());
+ for(const ticker of codes){
   if(current.has(ticker)){
    if(names.has(ticker)&&clean(current.get(ticker))!==names.get(ticker))conflicts.push(ticker);
    continue;
@@ -231,7 +235,7 @@ function planMissingNames(rows,requiredCodes,existing){
   if(ambiguous.has(ticker)||!names.has(ticker)){missing.push(ticker);continue;}
   add.push({ticker,display_name:names.get(ticker)});
  }
- return {add,missing,conflicts,total:new Set(requiredCodes).size};
+ return {add,missing,conflicts,total:codes.size};
 }
 let pendingNamePlan=null,nameFileGeneration=0,nameImportBusy=false;
 $('nameExcelFile').onchange=async e=>{
@@ -246,9 +250,9 @@ $('nameExcelFile').onchange=async e=>{
   const sheet=book.SheetNames.find(n=>/^(股票代號|個股代號|股票代碼|個股代碼|代號對照)$/.test(n.trim()));
   if(!sheet)throw Error('找不到「個股代號」工作表，請選擇原始 Excel');
   const rows=XLSX.utils.sheet_to_json(book.Sheets[sheet],{header:1,defval:'',raw:false});
-  const plan=planMissingNames(rows,trades.map(t=>t.ticker),tickers);
+  const plan=planMissingNames(rows,null,tickers);
   pendingNamePlan={...plan,owner};
-  $('nameImportStatus').textContent='交易共 '+plan.total+' 個代號；可新增 '+plan.add.length+' 個名稱；既有名稱保留 '+(plan.total-plan.add.length-plan.missing.length)+' 個。'+(plan.missing.length?'需核對：'+plan.missing.join('、')+'。':'')+(plan.conflicts.length?'Excel 與既有名稱不同：'+plan.conflicts.join('、')+'（保留既有）。':'');
+  $('nameImportStatus').textContent='完整代碼表共 '+plan.total+' 個代號；可新增 '+plan.add.length+' 個名稱；既有名稱保留 '+(plan.total-plan.add.length-plan.missing.length)+' 個。'+(plan.missing.length?'需核對：'+plan.missing.join('、')+'。':'')+(plan.conflicts.length?'Excel 與既有名稱不同：'+plan.conflicts.join('、')+'（保留既有）。':'');
   $('importMissingNames').disabled=!plan.add.length||nameImportBusy;
  }catch(err){if(generation===nameFileGeneration)$('nameImportStatus').textContent=err.message;}
 };
@@ -257,13 +261,17 @@ $('importMissingNames').onclick=async()=>{
  nameImportBusy=true;$('importMissingNames').disabled=true;$('nameExcelFile').disabled=true;
  try{
   $('nameImportStatus').textContent='正在補齊 '+plan.add.length+' 個名稱…';
-  await call('stock_tickers',q=>q.upsert(plan.add.map(t=>({...t,owner_id:plan.owner})),{onConflict:'owner_id,ticker',ignoreDuplicates:true}).select());
+  for(let i=0;i<plan.add.length;i+=200){
+   if(user?.id!==plan.owner)throw Error('登入帳號已變更，請重新登入檢查');
+   await call('stock_tickers',q=>q.upsert(plan.add.slice(i,i+200).map(t=>({...t,owner_id:plan.owner})),{onConflict:'owner_id,ticker',ignoreDuplicates:true}));
+   $('nameImportStatus').textContent='正在載入代碼表：'+Math.min(i+200,plan.add.length)+'／'+plan.add.length+' 個名稱';
+  }
   if(user?.id!==plan.owner)throw Error('登入帳號已變更，請重新登入檢查');
   await load();
   const saved=new Set(tickers.map(t=>t.ticker)),missing=plan.add.filter(t=>!saved.has(t.ticker));
   if(missing.length)throw Error('仍有 '+missing.length+' 個名稱未同步，請重新選擇 Excel 後補齊');
   pendingNamePlan=null;
-  $('nameImportStatus').textContent='已補齊並確認 '+plan.add.length+' 個代號的名稱。股票明細、持股總覽與股息提醒已更新。'+(plan.missing.length?'尚需核對：'+plan.missing.join('、')+'。':'');
+  $('nameImportStatus').textContent='已補齊並確認 '+plan.add.length+' 個代號的名稱。整張代碼表已載入，之後新增表內代號可直接對照名稱。'+(plan.missing.length?'尚需核對：'+plan.missing.join('、')+'。':'');
  }catch(err){$('nameImportStatus').textContent='請重新同步確認名稱：'+err.message;pendingNamePlan=null;}
  finally{nameImportBusy=false;$('nameExcelFile').disabled=false;}
 };

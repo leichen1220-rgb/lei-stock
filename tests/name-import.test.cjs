@@ -12,3 +12,8 @@ const writer=html.slice(html.indexOf("$('importMissingNames').onclick="),html.in
 assert.match(writer,/ignoreDuplicates:true/);assert.match(writer,/plan.owner!==user\?\.id/);
 assert.match(writer,/call\('stock_tickers'/);assert.doesNotMatch(writer,/stock_transactions|stock_commit_import/);
 console.log('PASS: bulk names, exact leading zeros, ETF collision, duplicate conflicts, existing name preservation and metadata-only writes');
+
+const full=plan(rows,null,[{ticker:'0056',display_name:'元大高股息'}]);
+assert.equal(full.total,5);assert.equal(full.add.length,3);assert.deepEqual(full.missing,['1234']);
+assert.ok(html.includes('planMissingNames(rows,null,tickers)'));
+assert.match(writer,/plan.add.slice\(i,i\+200\)/);
