@@ -1,0 +1,39 @@
+name: Update official closing prices
+on:
+  schedule:
+    # Taiwan 07:17, 16:17 and 19:17; includes holiday-safe retries.
+    - cron: '17 23,8,11 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/update_closing_prices.py
+      - .github/workflows/closing-prices.yml
+permissions:
+  contents: write
+concurrency:
+  group: official-closing-prices
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p '*_test.py'
+      - run: python scripts/update_closing_prices.py
+      - name: Publish public quotes
+        run: |
+          if git diff --quiet -- data/closing-prices.json; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/closing-prices.json
+          git commit -m 'Update official closing prices'
+          git pull --rebase origin main
+          git push origin HEAD:main

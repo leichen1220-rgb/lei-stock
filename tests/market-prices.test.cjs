@@ -1,0 +1,11 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const h=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+const code=h.slice(h.indexOf('function decodeMarketFeed('),h.indexOf('async function readOfficialPrices('));
+const {decodeMarketFeed,latestPrices,displayedPrices}=new Function('today','prices','marketQuotes','trades',code+';return {decodeMarketFeed,latestPrices,displayedPrices};')(()=> '2026-10-10',[{ticker:'0056',price_date:'2026-10-07',close_price:30}],[{ticker:'0056',price_date:'2026-10-08',close_price:31},{ticker:'006201',price_date:'2026-10-08',close_price:70}],[{ticker:'0056'}]);
+assert.equal(displayedPrices().length,1);assert.equal(displayedPrices()[0].close_price,31);
+assert.equal(latestPrices([{ticker:'0056',price_date:'2026-10-08',close_price:31},{ticker:'0056',price_date:'2026-10-07',close_price:29}])[0].close_price,31);
+const feed={schema_version:1,quotes:Array.from({length:100},(_,i)=>({ticker:String(1000+i),price_date:'2026-10-08',close_price:10,market:'TWSE'}))};
+assert.equal(decodeMarketFeed(feed).length,100);
+for(const patch of [{price_date:'2026-10-11'},{price_date:'2026-02-30'},{close_price:0},{close_price:null},{close_price:''}])assert.throws(()=>decodeMarketFeed({...feed,quotes:feed.quotes.map((q,i)=>i? q:{...q,...patch})}));
+assert.throws(()=>decodeMarketFeed({...feed,quotes:[...feed.quotes,feed.quotes[0]]}));
+console.log('PASS: official close validation, dates, latest price selection and account holdings filtering');

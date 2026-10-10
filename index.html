@@ -27,7 +27,7 @@
 #overview .scroll{max-height:58vh}
 @media(min-width:800px){#stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.7 · 支援桌面 App 模式</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.8 · 官方收盤價已接通</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -48,12 +48,12 @@
 <label class="field">備註<input name="note" maxlength="500"></label></div>
 <p class="actions"><button type="submit" class="primary" id="save">儲存交易</button><button type="button" id="resetTradeButton">取消編輯</button><span class="muted">僅顯示該交易別適用欄位；歷史紀錄可點「編輯」。</span></p></form></div>
 <div class="card"><div class="actions"><h2>交易明細</h2><input id="filter" placeholder="搜尋代號／備註"><span id="tradecount" class="muted"></span></div><div class="scroll"><table><thead><tr><th>日期</th><th>代號</th><th>名稱</th><th>交易別</th><th>股數</th><th>成交價</th><th>費用</th><th>股息</th><th>匯費</th><th>入帳日</th><th>確認</th><th>備註</th><th></th></tr></thead><tbody id="tradebody"></tbody></table></div></div></section>
-<section id="overview" class="page hidden"><div class="card"><h2>持股總覽</h2><p class="muted">股數依交易順序累計。收盤價尚未接通；成本與損益待核對。</p><div class="grid" id="stats"></div><div id="ledgerAudit" class="muted"></div><details class="card"><summary>成本／已實現損益試算 · 待核對</summary><details class="cost-notes"><summary>計算方式與待核對事項</summary><p class="muted">暫以移動平均成本法計算：買入成本含已記錄費用、賣出收入扣已記錄費用、股票股利增加股數但不增加成本；現金股息另計。費用欄位若未填，該檔成本與損益將顯示待核對，不會將未知費用當作 0。尚未處理減資、分割、特殊權益事件，也尚未與原 Excel 核對。</p></details><div id="costPreviewWarnings" class="muted"></div><div class="scroll"><table><thead><tr><th>代號</th><th>剩餘股數</th><th>剩餘成本</th><th>每股均價</th><th>已實現損益</th></tr></thead><tbody id="costPreviewBody"></tbody></table></div></details><div class="scroll"><table><thead><tr><th>代號</th><th>名稱</th><th>股數</th><th>累計淨股息</th><th>收盤價</th><th>報價日期</th><th>市值</th><th></th></tr></thead><tbody id="holdingbody"></tbody></table></div></div></section>
+<section id="overview" class="page hidden"><div class="card"><h2>持股總覽</h2><p class="muted">股數依交易順序累計；使用官方最近收盤價。成本與損益待核對。</p><p id="overviewPriceStatus" class="muted" aria-live="polite"></p><div class="grid" id="stats"></div><div id="ledgerAudit" class="muted"></div><details class="card"><summary>成本／已實現損益試算 · 待核對</summary><details class="cost-notes"><summary>計算方式與待核對事項</summary><p class="muted">暫以移動平均成本法計算：買入成本含已記錄費用、賣出收入扣已記錄費用、股票股利增加股數但不增加成本；現金股息另計。費用欄位若未填，該檔成本與損益將顯示待核對，不會將未知費用當作 0。尚未處理減資、分割、特殊權益事件，也尚未與原 Excel 核對。</p></details><div id="costPreviewWarnings" class="muted"></div><div class="scroll"><table><thead><tr><th>代號</th><th>剩餘股數</th><th>剩餘成本</th><th>每股均價</th><th>已實現損益</th></tr></thead><tbody id="costPreviewBody"></tbody></table></div></details><div class="scroll"><table><thead><tr><th>代號</th><th>名稱</th><th>股數</th><th>累計淨股息</th><th>收盤價</th><th>報價日期</th><th>市值</th><th></th></tr></thead><tbody id="holdingbody"></tbody></table></div></div></section>
 <section id="dividends" class="page hidden"><div class="card"><h2>股息入帳待確認</h2><p class="muted">已填匯費（含 0 元）即視為已確認入帳。未填匯費且尚未確認的股息，於預計入帳日隔天開始提醒。</p><div id="reminders"></div></div></section>
 <section id="other" class="page hidden">
 <div class="card"><h2>股票名稱對照</h2><form id="tickerform" class="actions"><input name="ticker" placeholder="代號" required><input name="display_name" placeholder="股票名稱" required><button class="primary">新增／更新</button></form><input id="tickerLookupSearch" placeholder="搜尋代號／名稱" aria-label="搜尋名稱對照"><div id="tickerlist"></div><h3>從 Excel 載入完整代碼表</h3><p class="muted">選擇原始「股票(5).xlsx」，一次載入整張「個股代號」表，包含尚未交易的代號。之後新增交易即可對照名稱；已存的名稱會保留。</p><input id="nameExcelFile" type="file" accept=".xlsx,.xls"><p id="nameImportStatus" class="muted" aria-live="polite">尚未選擇原始 Excel</p><button id="importMissingNames" type="button" class="primary" disabled>載入完整代碼表</button></div>
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
-<div class="card"><h2>每日收盤價</h2><p class="muted">僅使用已存入資料庫的每日收盤價；不追蹤盤中即時報價。尚未接通每日收盤價更新服務，缺價會顯示「—」，不會假裝是最新價格。</p><div id="priceStatus" class="muted"></div></div>
+<div class="card"><h2>每日收盤價</h2><p class="muted">來源為證交所／櫃買中心；每日自動檢查更新。休市沿用最近交易日，個別缺價保留原報價日期；非盤中即時行情。</p><div id="priceStatus" class="muted" aria-live="polite"></div><button id="refreshPrices" type="button">更新收盤價</button></div>
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
 <div class="card"><h2>雲端匯入環境檢查</h2><p class="muted">已安裝 SQL 後，可先確認登入帳號的交易筆數與匯入資格。只讀取資料，不會匯入 Excel，也不會寫入交易。</p><button type="button" id="checkCloudImport">檢查 Supabase 連線（唯讀）</button><p id="cloudImportResult" class="muted" aria-live="polite">尚未檢查</p><details open><summary>載入 591 筆核帳修正版（含增資認購與退款）</summary><p class="muted">選擇核帳修正版 JSON。先在本機檢查；按「安全暫存修正版」才送到雲端暫存，不會直接寫入正式帳本。原有 590 筆暫存不會被覆蓋。</p><input id="reviewedImportFile" type="file" accept=".json,application/json"><button id="stageReviewedImport" type="button" disabled>安全暫存修正版 591 筆</button><p id="reviewedImportStatus" class="muted" aria-live="polite">尚未選擇修正版</p></details><details><summary>下一步：核對已暫存批次（唯讀，不會正式匯入）</summary><p class="muted">貼上安全暫存完成後顯示的批次 ID；核對筆數、來源列號、金額欄位與正式帳本狀態。不需重新上傳 Excel。</p><div class="actions"><input id="auditBatchId" type="text" inputmode="text" placeholder="暫存批次 UUID" aria-label="暫存批次 ID" style="min-width:min(100%,340px);flex:1"><button type="button" id="auditStagedBatch">核對暫存批次（唯讀）</button></div><p id="auditStagedResult" class="muted" aria-live="polite">尚未核對</p></details></div><div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div>
 <div style="margin-top:16px;border-top:1px solid #394159;padding-top:16px">
@@ -135,6 +135,48 @@ async function fetchAll(table,sortColumns=[]){
  }
  return result;
 }
+
+const officialPriceFeed='https://raw.githubusercontent.com/leichen1220-rgb/lei-stock/main/data/closing-prices.json';
+let marketQuotes=[],marketPriceMessage='正在讀取官方收盤價…';
+function decodeMarketFeed(feed){
+ if(feed?.schema_version!==1||!Array.isArray(feed.quotes)||feed.quotes.length<100)throw Error('報價資料格式不完整');
+ const seen=new Set();
+ return feed.quotes.map(q=>{
+  if(!/^[0-9A-Z]{4,10}$/.test(q.ticker)||seen.has(q.ticker)||!['TWSE','TPEX'].includes(q.market)||typeof q.close_price!=='number'||!Number.isFinite(q.close_price)||q.close_price<=0)throw Error('報價代號或價格無效');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(q.price_date)||!Number.isFinite(Date.parse(q.price_date))||new Date(q.price_date+'T00:00:00Z').toISOString().slice(0,10)!==q.price_date||q.price_date>today())throw Error('報價日期無效');
+  seen.add(q.ticker);return {ticker:q.ticker,price_date:q.price_date,close_price:q.close_price,market:q.market};
+ });
+}
+function latestPrices(rows){
+ const latest=new Map();
+ for(const p of rows){
+  if(!p.ticker||!p.price_date||p.close_price===null||p.close_price===undefined||!Number.isFinite(Number(p.close_price))||Number(p.close_price)<=0)continue;
+  if(!latest.has(p.ticker)||p.price_date>=latest.get(p.ticker).price_date)latest.set(p.ticker,p);
+ }
+ return [...latest.values()];
+}
+function displayedPrices(){const used=new Set(trades.map(t=>t.ticker));return latestPrices([...prices,...marketQuotes.filter(q=>used.has(q.ticker))]);}
+async function readOfficialPrices(){
+ let feed=null,warning='';
+ try{
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+  try{const response=await fetch(officialPriceFeed+'?check='+Date.now(),{cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('報價連線失敗');feed=await response.json();decodeMarketFeed(feed);}finally{clearTimeout(timer);}
+ }catch(error){
+  warning='最新報價連線失敗，沿用已保存資料。';
+  try{feed=JSON.parse(localStorage.getItem('lei-stock-public-closes-v1')||'null');decodeMarketFeed(feed);}catch(cacheError){
+   try{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const response=await fetch('./data/closing-prices.json',{cache:'no-store',signal:controller.signal});if(!response.ok)throw Error('無備份報價');feed=await response.json();decodeMarketFeed(feed);}finally{clearTimeout(timer);}}catch(fallbackError){feed=null;}
+  }
+ }
+ if(feed){
+  marketQuotes=latestPrices([...marketQuotes,...decodeMarketFeed(feed)]);
+  try{localStorage.setItem('lei-stock-public-closes-v1',JSON.stringify({...feed,quotes:marketQuotes}));}catch(error){}
+  const dates=[...new Set(marketQuotes.map(q=>q.price_date))].sort(),latest=dates.at(-1);
+  const retained=Object.values(feed.sources||{}).some(v=>v.status==='retained');
+  marketPriceMessage='官方最近報價：'+latest+'；各檔日期見表格。非盤中即時行情。'+(retained?'部分來源更新失敗，保留原報價日期。':'')+warning;
+ }else marketPriceMessage='收盤價暫時無法連線；缺價顯示「—」，可稍後再更新。';
+}
+$('refreshPrices').onclick=async()=>{const button=$('refreshPrices');button.disabled=true;try{await readOfficialPrices();renderOverview();}finally{button.disabled=false;}};
+
 function hasFilledWireFee(t){return t.transaction_type==='現金股息'&&t.wire_fee!==null&&t.wire_fee!==undefined&&String(t.wire_fee).trim()!==''&&Number.isFinite(Number(t.wire_fee))&&Number(t.wire_fee)>=0;}
 async function confirmFilledWireFees(account,rows){
  const ids=rows.filter(t=>hasFilledWireFee(t)&&!t.payment_confirmed).map(t=>t.id),updated=new Map();
@@ -153,7 +195,7 @@ async function load(){
  let [newTrades,newTickers,newBanks,newPrices]=await Promise.all([
  fetchAll('stock_transactions',[['trade_date',true],['sequence_no',true],['id',true]]),
  fetchAll('stock_tickers',[['ticker',true]]),fetchAll('stock_etf_banks'),
- fetchAll('stock_closing_prices',[['price_date',false],['ticker',true]])]);
+ fetchAll('stock_closing_prices',[['price_date',false],['ticker',true]]),readOfficialPrices()]);
  if(user?.id!==account)return;
  newTrades=await confirmFilledWireFees(account,newTrades);
  if(user?.id!==account)return;
@@ -228,7 +270,7 @@ function estimateCostLedger(){
  }
  return {states,warnings};
 }
-function renderOverview(){const latestPriceDate=prices.length?String(prices[0].price_date||''):'';$('priceStatus').textContent=latestPriceDate?'目前資料庫最新收盤價日期：'+latestPriceDate+'（非盤中即時報價）':'尚無已同步的收盤價；等待每日更新服務。';const costAudit=estimateCostLedger();const warnings=[];const balances=new Map();const chronological=orderedTransactions(trades);for(const t of chronological){if(t.transaction_type!=='現股'&&t.transaction_type!=='股票股利')continue;const q=Number(t.quantity||0);const next=(balances.get(t.ticker)||0)+q;balances.set(t.ticker,next);if(next < -0.000001)warnings.push(t.ticker+'：'+t.trade_date+' 後庫存為 '+fmt(next)+' 股');} $('ledgerAudit').innerHTML=warnings.length?'<p class="danger"><strong>交易核對警示（'+warnings.length+' 筆）：</strong> '+warnings.slice(0,8).map(esc).join('；')+(warnings.length>8?'；另有 '+(warnings.length-8)+' 筆':'')+'</p>':'<p class="muted">交易順序庫存檢查：未發現負庫存（不代表成本與損益已核對）。</p>';const h=holdings();let total=0,known=0;const rows=h.map(x=>{const p=prices.find(p=>p.ticker===x.ticker);if(p){total+=x.quantity*Number(p.close_price);known++}return '<tr><td>'+esc(x.ticker)+'</td><td>'+esc(nameOf(x.ticker))+'</td><td class="num">'+fmt(x.quantity)+'</td><td class="num">'+fmt(x.dividend)+'</td><td class="num">'+(p?fmt(p.close_price):'—')+'</td><td>'+(p?esc(p.price_date):'—')+'</td><td class="num">'+(p?fmt(x.quantity*p.close_price):'—')+'</td><td><button data-view="'+esc(x.ticker)+'">查看明細</button></td></tr>';});$('holdingbody').innerHTML=rows.join('');$('stats').innerHTML=[['持有檔數',h.length+' 檔'],['有報價檔數',known+'/'+h.length],['市值（僅已報價）',known?fmt(total):'—'],['成本／損益','待核對']].map(x=>'<div class="card"><div class="muted">'+x[0]+'</div><div class="stat">'+x[1]+'</div></div>').join('');
+function renderOverview(){const displayPrices=displayedPrices();$('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;const costAudit=estimateCostLedger();const warnings=[];const balances=new Map();const chronological=orderedTransactions(trades);for(const t of chronological){if(t.transaction_type!=='現股'&&t.transaction_type!=='股票股利')continue;const q=Number(t.quantity||0);const next=(balances.get(t.ticker)||0)+q;balances.set(t.ticker,next);if(next < -0.000001)warnings.push(t.ticker+'：'+t.trade_date+' 後庫存為 '+fmt(next)+' 股');} $('ledgerAudit').innerHTML=warnings.length?'<p class="danger"><strong>交易核對警示（'+warnings.length+' 筆）：</strong> '+warnings.slice(0,8).map(esc).join('；')+(warnings.length>8?'；另有 '+(warnings.length-8)+' 筆':'')+'</p>':'<p class="muted">交易順序庫存檢查：未發現負庫存（不代表成本與損益已核對）。</p>';const h=holdings();let total=0,known=0;const rows=h.map(x=>{const p=displayPrices.find(p=>p.ticker===x.ticker);if(p){total+=x.quantity*Number(p.close_price);known++}return '<tr><td>'+esc(x.ticker)+'</td><td>'+esc(nameOf(x.ticker))+'</td><td class="num">'+fmt(x.quantity)+'</td><td class="num">'+fmt(x.dividend)+'</td><td class="num">'+(p?fmt(p.close_price):'—')+'</td><td>'+(p?esc(p.price_date):'—')+'</td><td class="num">'+(p?fmt(x.quantity*p.close_price):'—')+'</td><td><button data-view="'+esc(x.ticker)+'">查看明細</button></td></tr>';});$('holdingbody').innerHTML=rows.join('');$('stats').innerHTML=[['持有檔數',h.length+' 檔'],['有報價檔數',known+'/'+h.length],['市值（僅已報價）',known?fmt(total):'—'],['成本／損益','待核對']].map(x=>'<div class="card"><div class="muted">'+x[0]+'</div><div class="stat">'+x[1]+'</div></div>').join('');
  const costRows=[...costAudit.states.entries()].filter(([ticker,st])=>Math.abs(st.quantity)>0.000001||Math.abs(st.realized)>0.000001);
  $('costPreviewBody').innerHTML=costRows.map(([ticker,st])=>'<tr><td>'+esc(ticker)+'</td><td class="num">'+fmt(st.quantity)+'</td><td class="num">'+(st.valid?fmt(st.cost):'待核對')+'</td><td class="num">'+(st.valid&&st.quantity>0?fmt(st.cost/st.quantity):'—')+'</td><td class="num">'+(st.valid?fmt(st.realized):'待核對')+'</td></tr>').join('');
  $('costPreviewWarnings').textContent=costAudit.warnings.length?'發現 '+costAudit.warnings.length+' 項提醒／需核對：'+costAudit.warnings.slice(0,5).join('；'):'僅為移動平均成本試算，尚未與原 Excel 核對。';

@@ -18,3 +18,7 @@ jobs:
       - run: node tests/import-preflight.test.cjs
       - run: node tests/import-staging.test.cjs
       - run: node tests/paid-cost-migration.test.cjs
+      - run: node tests/market-prices.test.cjs
+      - run: node tests/wire-confirmation.test.cjs
+      - run: node tests/name-import.test.cjs
+      - run: python -m unittest discover -s tests -p '*_test.py'
