@@ -321,6 +321,37 @@ $('excelFile').addEventListener('change',async e=>{
   const validTypes=new Set(['現股','現金股息','股票股利']);
   const statusCol=idx('狀態','交易狀態','成交狀態');
   const candidateRows=rows.slice(headerIndex+1).map(({row,excelRow})=>({row,position:excelRow}));
+  // Excel apps may re-save the same trading ledger with different XLSX bytes.
+  // Match the user's revised ledger by multiple independently checked row
+  // identities and monetary values, NOT just a file-wide ZIP checksum.
+  // This match is only a classification hint; the full workbook SHA remains
+  // recorded for audit and any actual staging batch.
+  const sourceRow=n=>candidateRows.find(item=>item.position===n)?.row;
+  const sameNumber=(value,expected)=>value!==null&&value!==undefined&&
+   String(value).trim()!==''&&Number(value)===expected;
+  const revisedLedgerStructureMatches=(()=>{
+   const r106=sourceRow(106),r307=sourceRow(307),r503=sourceRow(503),
+    r504=sourceRow(504),r557=sourceRow(557),r611=sourceRow(611);
+   const totalCol=idx('總股數');
+   const costCol=idx('付出成本','已付出成本','實際付出成本','成交總成本');
+   const feeIndex=idx('手續費＆交易稅','手續費&交易稅','手續費與交易稅','手續費交易稅','交易費用','手續費');
+   const sameTicker=(row,ticker)=>row&&normalizeTicker(row[codeCol])===ticker;
+   return totalCol>=0&&costCol>=0&&feeIndex>=0&&
+    sameTicker(r106,'9105')&&String(r106[typeCol]??'').trim()==='現股'&&
+    sameNumber(r106[sharesCol],1988)&&sameNumber(r106[costCol],2883)&&
+    sameTicker(r307,'2002')&&sameNumber(r307[sharesCol],-1000)&&
+    sameNumber(r307[priceCol],20.1)&&sameNumber(r307[feeIndex],68)&&
+    sameTicker(r503,'1802')&&sameTicker(r504,'1802')&&
+    sameNumber(r503[sharesCol],-100)&&sameNumber(r504[sharesCol],-100)&&
+    sameNumber(r503[totalCol],150)&&sameNumber(r504[totalCol],50)&&
+    sameTicker(r557,'2327')&&sameNumber(r557[sharesCol],10)&&
+    sameNumber(r557[costCol],5512)&&sameNumber(r557[feeIndex],2)&&
+    sameTicker(r611,'00830')&&String(r611[typeCol]??'').trim()==='現股'&&
+    !String(r611[dateCol]??'').trim()&&
+    !candidateRows.some(item=>item.position>611&&
+     validTypes.has(String(item.row[typeCol]??'').trim())&&
+     String(item.row[codeCol]??'').trim()&&String(item.row[dateCol]??'').trim());
+  })();
   // Check the status column BEFORE identifying executed trades. A pending
   // buy/sell may have valid type, quantity and target price but is NOT executed.
   const waitingRows=candidateRows.filter(({row})=>statusCol>=0&&String(row[statusCol]??'').trim()==='等待');
@@ -329,7 +360,7 @@ $('excelFile').addEventListener('change',async e=>{
   // original workbook. Scope the exception to its SHA-256 and source identity:
   // editing or inserting Excel rows invalidates it rather than silently
   // misclassifying a different transaction.
-  const verifiedRefund=item=>(workbookSha===originalWorkbookSha||workbookSha===revisedWorkbookSha)&&
+  const verifiedRefund=item=>(workbookSha===originalWorkbookSha||workbookSha===revisedWorkbookSha||revisedLedgerStructureMatches)&&
    item.position===106&&normalizeTicker(item.row[codeCol])==='9105'&&
    String(item.row[typeCol]??'').trim()==='現股';
   const refundRows=candidateRows.filter(item=>!waitingSet.has(item)&&
@@ -337,7 +368,7 @@ $('excelFile').addEventListener('change',async e=>{
   // Confirmed original-file review decisions. These are scoped to the
   // exact SHA-256; modified Excel files must be reviewed again.
   const originalReviewMatches=workbookSha===originalWorkbookSha;
-  const revisedReviewMatches=workbookSha===revisedWorkbookSha;
+  const revisedReviewMatches=workbookSha===revisedWorkbookSha||revisedLedgerStructureMatches;
   const verifiedDuplicatePair=originalReviewMatches&&candidateRows.some(x=>x.position===554)&&
    candidateRows.some(x=>x.position===557)&&
    normalizeTicker(candidateRows.find(x=>x.position===554).row[codeCol])==='6175'&&
@@ -365,7 +396,7 @@ $('excelFile').addEventListener('change',async e=>{
   const statusWarning=statusCol<0?'<p class="danger">找不到「狀態」欄：目前無法確認哪些紀錄尚未成交，禁止正式匯入。</p>':'';
   const verifiedRefundCount=refundRows.filter(verifiedRefund).length;
   const revisedReviewPreview=revisedReviewMatches?
-   '<p><strong>已核實新版 Excel：</strong>第 106 列（9105）為增資退款；第 503、504 列（1802）是兩筆不同成交，均保留；第 611 列（00830）為最後一筆交易／計畫，612 列起為試算與備註。新版第 307 列成交價 20.1、費用 68；第 557 列（2327）付出成本 5,512、費用 2，均已直接存在檔案中，不再套用舊版列號修正。</p>':'';
+   '<p><strong>已核實新版交易列結構'+(workbookSha===revisedWorkbookSha?'（原檔 SHA 相同）':'（檔案已重新儲存，SHA 不同；仍需完整核帳）')+'：</strong>第 106 列（9105）為增資退款；第 503、504 列（1802）是兩筆不同成交，均保留；第 611 列（00830）為最後一筆交易／計畫，612 列起為試算與備註。新版第 307 列成交價 20.1、費用 68；第 557 列（2327）付出成本 5,512、費用 2，均已直接存在檔案中，不再套用舊版列號修正。</p>':'';
 
   const reviewedCorrectionsPreview=originalReviewMatches?
    '<p><strong>已核實原始檔修正：</strong>第 307 列成交價使用 20.1（僅匯入資料，不修改 Excel）；'+
