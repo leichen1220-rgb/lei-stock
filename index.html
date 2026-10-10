@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.1 · 增資認購已補回｜591 筆核帳修正版</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.2 · 增資認購已補回｜591 筆核帳修正版</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -1142,7 +1142,10 @@ async function commitReconciledBatch(batchId,auditedOwner,button,output){
   if(!cloudDataReady||trades.length!==591)throw Error('提交已完成，但重新讀取正式帳本尚未通過');
   const actual=trades.map(t=>({excel_row:Number(t.sequence_no),transaction_data:
    Object.fromEntries(Object.keys(records[0].transaction_data).map(k=>[k,t[k]??null]))}));
-  if(await stagingFingerprint(actual)!==reconciledStagingFingerprint)
+  const storedExpectation=records.map(r=>({excel_row:r.excel_row,transaction_data:{
+   ...r.transaction_data,dividend_gross:r.transaction_data.dividend_gross==null?null:
+    Number(Number(r.transaction_data.dividend_gross).toFixed(4))}}));
+  if(await stagingFingerprint(actual)!==await stagingFingerprint(storedExpectation))
    throw Error('提交已完成，但正式帳本內容需要進一步核對');
   button.remove();
   output.textContent='已正式匯入並逐筆核對 591 筆：現股 333、現金股息 251、股票股利 7。付出成本已保存；請到「備份與資料匯出」下載雙重備份 ZIP。';

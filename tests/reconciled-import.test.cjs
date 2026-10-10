@@ -13,6 +13,8 @@ const fixtures=Array.from({length:591},(_,i)=>({excel_row:i+2,transaction_data:{
  ticker:'1234',trade_date:'2026-10-01',transaction_type:'現股',quantity:10,
  price:20,trade_fees:2,paid_cost:202,dividend_gross:null,wire_fee:null,
  payment_date:null,note:null,sequence_no:i+2}}));
+fixtures[571].transaction_data.transaction_type='現金股息';
+fixtures[571].transaction_data.dividend_gross=34.638999999999996;
 const canonical=records=>JSON.stringify([...records].sort((a,b)=>a.excel_row-b.excel_row)
  .map(r=>[Number(r.excel_row),Object.keys(r.transaction_data).sort().map(k=>[k,r.transaction_data[k]])]));
 const fingerprint=createHash('sha256').update(canonical(fixtures)).digest('hex');
@@ -39,7 +41,7 @@ function harness(options={}){
   }
   throw Error('Unexpected RPC '+name);
  },from:()=>({select(){return this},eq(){return this},limit:async()=>({data:[{state:'staged',row_count:591}]})})},
- load:async()=>{context.trades=fixtures.map(r=>({...r.transaction_data,id:'row-'+r.excel_row}));if(options.postMismatch)context.trades[0].price=999;}
+ load:async()=>{context.trades=fixtures.map(r=>({...r.transaction_data,dividend_gross:r.transaction_data.dividend_gross==null?null:Number(r.transaction_data.dividend_gross.toFixed(4)),id:'row-'+r.excel_row}));if(options.dividendMismatch)context.trades[571].dividend_gross+=0.0001;if(options.postMismatch)context.trades[0].price=999;}
  };
  vm.createContext(context);
  vm.runInContext(code.replace(/const reconciledStagingFingerprint='[a-f0-9]{64}'/,
@@ -84,7 +86,7 @@ function harness(options={}){
  assert.equal(h.downloads.length,0,'Commit must not trigger a Safari download before the RPC');
  assert.equal(h.button.removed,true);
  assert.match(h.output.textContent,/已正式匯入並逐筆核對 591 筆/);
- for(const options of [{commitFailure:true},{postMismatch:true}]){
+ for(const options of [{commitFailure:true},{postMismatch:true},{dividendMismatch:true}]){
   const t=harness(options);await t.run();await t.run();
   assert.equal(t.calls.filter(x=>x==='stock_commit_import').length,1,'Uncertain/completed writes must not auto-retry');
   assert.equal(t.button.disabled,true);
