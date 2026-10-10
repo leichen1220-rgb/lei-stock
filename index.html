@@ -38,7 +38,7 @@
 .clear-input-button{flex:0 0 36px;width:36px;min-height:40px;padding:0;border:0;background:transparent;color:#a6aec3;font-size:23px;line-height:1}
 .clear-input-button:hover,.clear-input-button:focus-visible{background:#343b51;color:#fff}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.3 · 輸入欄一鍵清空</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.4 · 銀行備忘編輯與刪除</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -79,7 +79,7 @@
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
 </div>
 <div id="otherMemo" data-other-panel="memo" class="hidden">
-<div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
+<div class="card"><h2 id="bankFormTitle">ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><div class="actions"><button type="submit" class="primary" id="bankSaveButton">儲存銀行資料</button><button type="button" id="bankCancelButton" class="hidden">取消編輯</button></div></form><div id="banklist"></div></div>
 <div class="card"><h2>每日收盤價</h2><p class="muted">來源為證交所／櫃買中心；每日自動檢查更新。休市沿用最近交易日，個別缺價保留原報價日期；非盤中即時行情。</p><div id="priceStatus" class="muted" aria-live="polite"></div><button id="refreshPrices" type="button">更新收盤價</button></div>
 </div>
 </section></section></main>
@@ -93,7 +93,7 @@ window.addEventListener('unhandledrejection',function(e){const m=document.getEle
 'use strict';
 const SUPABASE_URL='https://vhkupxpaojlzfokmdfup.supabase.co', KEY='sb_publishable_WFu5nLyPYtqx6b3RP0n4gg_OvfDeq0A';
 const $=id=>document.getElementById(id), client=window.supabase?.createClient(SUPABASE_URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let user=null,trades=[],tickers=[],banks=[],prices=[],editing=null,cloudDataReady=false;
+let user=null,trades=[],tickers=[],banks=[],prices=[],editing=null,editingBank=null,bankBusy=false,cloudDataReady=false;
 function backupAvailability(){for(const id of ['backup','backupBoth','csv']){const el=document.getElementById(id);if(el)el.disabled=!cloudDataReady;}}
 const fmt=n=>n==null||n===''?'':Number(n).toLocaleString('zh-TW',{maximumFractionDigits:2});
 const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'});
@@ -341,7 +341,7 @@ function renderOverview(){const displayPrices=displayedPrices();$('priceStatus')
 }
 function renderReminders(){const due=trades.filter(t=>t.transaction_type==='現金股息'&&t.payment_date&&t.payment_date<today()&&!t.payment_confirmed);$('reminders').innerHTML=due.length?due.map(t=>'<div class="card"><strong>'+esc(t.ticker)+' '+esc(nameOf(t.ticker))+'</strong><p>預計入帳：'+esc(t.payment_date)+'　配息：'+fmt(t.dividend_gross)+'　匯費：'+(t.wire_fee==null?'待填':fmt(t.wire_fee))+'</p><button data-edit="'+esc(t.id)+'">編輯並確認入帳</button></div>').join(''):'目前沒有逾期未確認的股息。';}
 $('tickerLookupSearch').oninput=()=>renderOther();
-function renderOther(){const query=$('tickerLookupSearch').value.trim().toUpperCase();const sortedTickers=tickers.filter(t=>!query||(t.ticker+' '+t.display_name).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'zh-TW',{numeric:true}));$('tickerlist').innerHTML='<p class="muted">'+tickers.length+' 筆名稱對照（點選代號可帶入上方修改）</p>'+'<p class="muted">符合 '+sortedTickers.length+' 筆，顯示前 50 筆；可搜尋其他代號。</p><div class="scroll">'+sortedTickers.slice(0,50).map(t=>'<button type="button" data-ticker-edit="'+esc(t.ticker)+'" title="點選帶入修改" style="margin:3px;padding:7px 10px">'+esc(t.ticker)+' '+esc(t.display_name)+'</button>').join('')+'</div>';$('banklist').innerHTML=banks.map(b=>'<p>'+esc(b.ticker)+'｜'+esc(b.custodian_bank||'')+' → '+esc(b.payout_bank||'')+'｜末四碼 '+esc(b.account_last4||'未填')+'</p>').join('');}
+function renderOther(){const query=$('tickerLookupSearch').value.trim().toUpperCase();const sortedTickers=tickers.filter(t=>!query||(t.ticker+' '+t.display_name).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'zh-TW',{numeric:true}));$('tickerlist').innerHTML='<p class="muted">'+tickers.length+' 筆名稱對照（點選代號可帶入上方修改）</p>'+'<p class="muted">符合 '+sortedTickers.length+' 筆，顯示前 50 筆；可搜尋其他代號。</p><div class="scroll">'+sortedTickers.slice(0,50).map(t=>'<button type="button" data-ticker-edit="'+esc(t.ticker)+'" title="點選帶入修改" style="margin:3px;padding:7px 10px">'+esc(t.ticker)+' '+esc(t.display_name)+'</button>').join('')+'</div>';$('banklist').innerHTML=bankListHTML(banks);}
 function render(){updateTradeTickerName();renderTrades();renderOverview();renderReminders();renderOther();}
 document.body.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.edit)edit(b.dataset.edit);if(b.dataset.del)del(b.dataset.del);if(b.dataset.view){show('trades');$('filter').value=b.dataset.view;renderTrades();}});
 $('tickerlist').addEventListener('click',e=>{const btn=e.target.closest('[data-ticker-edit]');if(!btn)return;const t=tickers.find(x=>x.ticker===btn.dataset.tickerEdit);if(!t)return;const form=$('tickerform');form.elements.namedItem('ticker').value=t.ticker;form.elements.namedItem('display_name').value=t.display_name;form.elements.namedItem('display_name').focus();});
@@ -418,7 +418,39 @@ $('importMissingNames').onclick=async()=>{
 };
 
 $('tickerform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;try{await call('stock_tickers',q=>q.upsert({owner_id:user.id,ticker:f.ticker.value.trim().toUpperCase(),display_name:f.display_name.value.trim()},{onConflict:'owner_id,ticker'}).select());e.target.reset();await load();}catch(err){msg(err.message,true)}};
-$('bankform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;const o={owner_id:user.id,ticker:f.ticker.value.trim().toUpperCase(),custodian_bank:f.custodian_bank.value||null,payout_bank:f.payout_bank.value||null,account_last4:f.account_last4.value||null,note:f.note.value||null};if(/\d{5,}/.test([o.custodian_bank,o.payout_bank,o.note].join(' ')))return msg('銀行資料疑似含完整帳號，請移除後再存',true);try{await call('stock_etf_banks',q=>q.upsert(o,{onConflict:'owner_id,ticker'}).select());e.target.reset();await load();}catch(err){msg(err.message,true)}};
+function bankListHTML(items){
+ if(!items.length)return '<p class="muted">目前沒有銀行備忘。</p>';
+ return '<p class="muted">已儲存 '+items.length+' 筆銀行備忘</p>'+items.slice().sort((a,b)=>a.ticker.localeCompare(b.ticker)).map(b=>'<div class="card"><strong>'+esc(b.ticker)+(nameOf(b.ticker)==='—'?'':' '+esc(nameOf(b.ticker)))+'</strong><p>保管銀行：'+esc(b.custodian_bank||'未填')+'<br>入帳銀行：'+esc(b.payout_bank||'未填')+'<br>帳號末四碼：'+esc(b.account_last4||'未填')+'</p>'+(b.note?'<p style="white-space:pre-wrap">備註：'+esc(b.note)+'</p>':'')+'<div class="actions"><button type="button" data-bank-edit="'+esc(b.ticker)+'">編輯</button><button type="button" class="danger" data-bank-delete="'+esc(b.ticker)+'">刪除</button></div></div>').join('');
+}
+function resetBankForm(){editingBank=null;$('bankform').reset();$('bankform').elements.ticker.readOnly=false;$('bankFormTitle').textContent='ETF 銀行備忘';$('bankSaveButton').textContent='儲存銀行資料';$('bankCancelButton').classList.add('hidden');}
+function editBank(ticker){
+ if(bankBusy||!user)return;
+ const b=banks.find(x=>x.ticker===ticker);if(!b)return;
+ editingBank={ticker,owner:user.id};const f=$('bankform').elements;
+ ['ticker','custodian_bank','payout_bank','account_last4','note'].forEach(k=>f[k].value=b[k]??'');f.ticker.readOnly=true;
+ $('bankFormTitle').textContent='編輯銀行備忘 · '+ticker;$('bankSaveButton').textContent='儲存修改';$('bankCancelButton').classList.remove('hidden');show('other');showOtherPage('memo');$('bankFormTitle').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('bankCancelButton').onclick=()=>{if(!bankBusy)resetBankForm();};
+$('banklist').addEventListener('click',async e=>{
+ const button=e.target.closest('button');if(!button||bankBusy)return;
+ if(button.dataset.bankEdit)return editBank(button.dataset.bankEdit);
+ const ticker=button.dataset.bankDelete,owner=user?.id;if(!ticker||!owner)return;
+ if(!confirm('確定刪除 '+ticker+' 的銀行備忘？交易紀錄不受影響。'))return;
+ bankBusy=true;button.disabled=true;
+ try{const deleted=await call('stock_etf_banks',q=>q.delete().eq('owner_id',owner).eq('ticker',ticker).select());if(!deleted?.length)throw Error('未找到這筆備忘，請重新同步');if(user?.id!==owner)return;if(editingBank?.ticker===ticker)resetBankForm();await load();msg('已刪除 '+ticker+' 的銀行備忘');}
+ catch(err){msg('刪除失敗：'+err.message,true);}finally{bankBusy=false;button.disabled=false;}
+});
+$('bankform').onsubmit=async e=>{
+ e.preventDefault();if(bankBusy||!user)return;const owner=user.id,f=e.target.elements;
+ if(editingBank&&editingBank.owner!==owner)return msg('登入帳號已變更，請重新開啟備忘編輯',true);
+ const o={owner_id:owner,ticker:editingBank?.ticker||f.ticker.value.trim().toUpperCase(),custodian_bank:f.custodian_bank.value.trim()||null,payout_bank:f.payout_bank.value.trim()||null,account_last4:f.account_last4.value.trim()||null,note:f.note.value.trim()||null};
+ if(!o.ticker)return msg('請填代號',true);
+ if(o.account_last4&&!/^\d{4}$/.test(o.account_last4))return msg('帳號末四碼請填 4 個數字',true);
+ if(/\d{5,}/.test([o.custodian_bank,o.payout_bank,o.note].join(' ')))return msg('銀行資料疑似含完整帳號，請移除後再存',true);
+ bankBusy=true;$('bankSaveButton').disabled=true;
+ try{const saved=await call('stock_etf_banks',q=>editingBank?q.update(o).eq('owner_id',owner).eq('ticker',editingBank.ticker).select():q.upsert(o,{onConflict:'owner_id,ticker'}).select());if(!saved?.length)throw Error('未找到這筆備忘，請重新同步');if(user?.id!==owner)return;resetBankForm();await load();msg('銀行備忘已儲存');}
+ catch(err){msg('儲存失敗：'+err.message,true);}finally{bankBusy=false;$('bankSaveButton').disabled=false;}
+};
 function download(filename,body,mime){const blob=new Blob([body],{type:mime}),a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('backup').onclick=()=>{if(!cloudDataReady)return msg('雲端資料尚未完整同步，已阻止不完整備份',true);download('lei-stock-'+today()+'.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),transactions:trades,tickers,banks,closing_prices:prices},null,2),'application/json');localStorage.setItem('lei-stock-last-backup',today());$('backupdate').textContent='上次下載：'+today();};
 $('backupBoth').onclick=async()=>{if(!cloudDataReady)return msg('雲端資料尚未完整同步，已阻止不完整備份',true);
@@ -1500,7 +1532,7 @@ function initializeClearButtons(){
   const button=document.createElement('button');button.type='button';button.className='clear-input-button';button.textContent='×';
   const label=input.getAttribute('aria-label')||input.placeholder||input.closest('label')?.childNodes[0]?.textContent?.trim()||'輸入欄';
   button.setAttribute('aria-label','清空'+label);button.title='清空'+label;
-  button.onclick=event=>{event.preventDefault();if(input.disabled)return;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.focus();};
+  button.onclick=event=>{event.preventDefault();if(input.disabled||input.readOnly)return;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.focus();};
   input.before(wrapper);wrapper.append(input,button);
  });
 }
@@ -1514,7 +1546,7 @@ client.auth.onAuthStateChange((event,session)=>{
  if(!initialAuthResolved&&event==='INITIAL_SESSION')initialAuthResolved=true;
  finishAuthBoot();const prev=user?.id;user=session?.user||null;authUI();
  if(user&&user.id!==prev)setTimeout(load,0);
- if(!user){cloudDataReady=false;backupAvailability();trades=[];tickers=[];banks=[];prices=[];render();}
+ if(!user){resetBankForm();cloudDataReady=false;backupAvailability();trades=[];tickers=[];banks=[];prices=[];render();}
 });
 client.auth.getSession().then(({data,error})=>{
  if(error)msg('登入狀態恢復失敗：'+error.message,true);
