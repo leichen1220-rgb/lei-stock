@@ -146,7 +146,7 @@ assert.ok(html.includes("excluded_info_rows:excludedInfoRows"),'Excluded rows mu
 assert.ok(html.includes("profit_status_rows:paidCostProfitRows"),'Import audit must retain excluded profit-status rows');
 console.log('PASS: Excel preflight normalization and source-format guards');
 
-assert.match(html,/const confirmedFooterRows=originalReviewMatches\?/,'Footer exclusion must be limited to verified original workbook');
+assert.match(html,/const confirmedFooterRows=\(originalReviewMatches\|\|revisedReviewMatches\)\?/,'Footer exclusion must be limited to verified original or revised workbook');
 assert.match(html,/item\.position>\(revisedReviewMatches\?611:footerBoundary\)/,'Revised ledger ends at 611 and original ends at 612');
 assert.match(html,/const footerBoundary=612/,'Original ledger ends at Excel row 612');
 assert.match(html,/const footerTradeConflicts=confirmedFooterRows\.filter/,'Trade-shaped rows in footer must be audited');
@@ -182,3 +182,5 @@ assert.ok(html.includes("const revisedWorkbookSha='0214986ec2a9ae20a45adfa08c52b
 assert.ok(html.includes('const confirmedDistinctPair=revisedReviewMatches'),'Only SHA-scoped revised workbook may waive confirmed separate 503/504 executions');
 assert.ok(html.includes('const verifiedRefund=item=>(workbookSha===originalWorkbookSha||workbookSha===revisedWorkbookSha)'),'Refund applies to both verified workbook versions');
 assert.ok(html.includes('candidateRows.filter(item=>item.position>(revisedReviewMatches?611:footerBoundary))'),'Revised footer starts after row 611');
+assert.ok(html.includes('const verifiedDuplicatePair=originalReviewMatches'),'Original-only 554/557 duplicate rule must not affect revised rows');
+assert.ok(html.includes('const confirmedDistinctPair=revisedReviewMatches'),'Revised 503/504 trades must be preserved as distinct');
