@@ -15,6 +15,7 @@ jobs:
       - run: node tests/page-syntax.test.cjs
       - run: node --check tests/cost-ledger.test.cjs
       - run: node tests/cost-ledger.test.cjs
+      - run: node tests/excel-cost.test.cjs
       - run: node tests/import-preflight.test.cjs
       - run: node tests/import-staging.test.cjs
       - run: node tests/paid-cost-migration.test.cjs
