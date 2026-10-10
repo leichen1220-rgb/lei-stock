@@ -124,7 +124,7 @@ assert.ok(html.includes("const paidCostCol=idx('付出成本'"),'Independent pai
 assert.ok(html.includes('confirmed_paid_cost:5512'),'Original row 558 correction must be retained');
 assert.ok(html.includes('applied_to_transaction:false'),'Paid cost must not be silently mapped into transaction price or fees');
 assert.ok(html.includes('paid_cost_audit:{column_recognized:'),'Dry-run report must preserve cost reconciliation status');
-assert.ok(html.includes('reviewedCorrectionsPreview+correctionDiagnosticPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
+assert.ok(html.includes('reviewedCorrectionsPreview+revisedReviewPreview+correctionDiagnosticPreview+paidCostAudit+'),'Cost reconciliation must be visible in the preview');
 assert.ok(html.includes('const paidCostRows=[],paidCostInvalidRows=[],paidCostProfitRows=[]'),'Audit all source cost rows');
 assert.ok(html.includes('reviewed_paid_cost:paidCost558Review&&position===558?5512:null'),'Reviewed cost must be recorded separately from source value');
 assert.ok(html.includes('invalid_rows:paidCostInvalidRows'),'Invalid paid-cost values must be visible in exported plan');
@@ -147,7 +147,7 @@ assert.ok(html.includes("profit_status_rows:paidCostProfitRows"),'Import audit m
 console.log('PASS: Excel preflight normalization and source-format guards');
 
 assert.match(html,/const confirmedFooterRows=originalReviewMatches\?/,'Footer exclusion must be limited to verified original workbook');
-assert.match(html,/item\.position>footerBoundary/,'Original transaction boundary must exclude only rows after 612');
+assert.match(html,/item\.position>\(revisedReviewMatches\?611:footerBoundary\)/,'Revised ledger ends at 611 and original ends at 612');
 assert.match(html,/const footerBoundary=612/,'Original ledger ends at Excel row 612');
 assert.match(html,/const footerTradeConflicts=confirmedFooterRows\.filter/,'Trade-shaped rows in footer must be audited');
 assert.match(html,/if\(footerTradeConflicts\.length\)blockers\.push/,'Unexpected trade-shaped footer rows must block import');
@@ -175,5 +175,10 @@ assert.ok(html.includes("errors.push('成交價（原始值：'"),'Show exact in
 assert.ok(html.includes("errors.push('手續費／交易稅（原始值：'"),'Show exact invalid fees');
 assert.ok(html.includes('source_fields:{'),'Export raw conversion fields for audit');
 assert.ok(html.includes('applied_price:price,applied_paid_cost:paidCost'),'Export reviewed values separately');
-assert.ok(html.includes('reviewedCorrectionsPreview+correctionDiagnosticPreview'),'Surface field-level diagnostics in import preview');
+assert.ok(html.includes('reviewedCorrectionsPreview+revisedReviewPreview+correctionDiagnosticPreview'),'Surface field-level diagnostics in import preview');
 assert.ok(!html.includes("errors.push('現股數量／價格／費用')"),'Never hide failing field behind generic combined error');
+
+assert.ok(html.includes("const revisedWorkbookSha='0214986ec2a9ae20a45adfa08c52bc3434b41382c7c54eeb8843f85930f57549'"),'Revised workbook hash must match verified upload');
+assert.ok(html.includes('const confirmedDistinctPair=revisedReviewMatches'),'Only SHA-scoped revised workbook may waive confirmed separate 503/504 executions');
+assert.ok(html.includes('const verifiedRefund=item=>(workbookSha===originalWorkbookSha||workbookSha===revisedWorkbookSha)'),'Refund applies to both verified workbook versions');
+assert.ok(html.includes('candidateRows.filter(item=>item.position>(revisedReviewMatches?611:footerBoundary))'),'Revised footer starts after row 611');
