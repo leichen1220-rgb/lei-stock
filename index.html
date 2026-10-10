@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.1 · 匯入錯誤逐欄診斷｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.2 · 新版 Excel 來源核對｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -312,6 +312,8 @@ $('excelFile').addEventListener('change',async e=>{
   const codeCol=idx('輸入'),dateCol=idx('成交/除權息日','成交/除權息日期','成交除權息日'),typeCol=idx('交易別'),sharesCol=idx('股數'),priceCol=idx('成交價');
   if([codeCol,dateCol,typeCol,sharesCol,priceCol].some(c=>c<0)){out.textContent='缺少必要欄位（代號、日期、交易別、股數或成交價），已停止預覽；沒有上傳資料。';return;}
   const originalWorkbookSha='44b6c1f5f8574ab1f5e0ddc266509db5bb2b6df92b8227e7c45089d7d8ab1b59';
+  // User-uploaded revised workbook, independently verified from its actual XLSX.
+  const revisedWorkbookSha='0214986ec2a9ae20a45adfa08c52bc3434b41382c7c54eeb8843f85930f57549';
   const workbookSha=globalThis.crypto?.subtle?
    [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))]
     .map(v=>v.toString(16).padStart(2,'0')).join(''):null;
@@ -327,7 +329,7 @@ $('excelFile').addEventListener('change',async e=>{
   // original workbook. Scope the exception to its SHA-256 and source identity:
   // editing or inserting Excel rows invalidates it rather than silently
   // misclassifying a different transaction.
-  const verifiedRefund=item=>workbookSha===originalWorkbookSha&&
+  const verifiedRefund=item=>(workbookSha===originalWorkbookSha||workbookSha===revisedWorkbookSha)&&
    item.position===106&&normalizeTicker(item.row[codeCol])==='9105'&&
    String(item.row[typeCol]??'').trim()==='現股';
   const refundRows=candidateRows.filter(item=>!waitingSet.has(item)&&
@@ -335,6 +337,7 @@ $('excelFile').addEventListener('change',async e=>{
   // Confirmed original-file review decisions. These are scoped to the
   // exact SHA-256; modified Excel files must be reviewed again.
   const originalReviewMatches=workbookSha===originalWorkbookSha;
+  const revisedReviewMatches=workbookSha===revisedWorkbookSha;
   const verifiedDuplicatePair=originalReviewMatches&&candidateRows.some(x=>x.position===554)&&
    candidateRows.some(x=>x.position===557)&&
    normalizeTicker(candidateRows.find(x=>x.position===554).row[codeCol])==='6175'&&
@@ -346,8 +349,8 @@ $('excelFile').addEventListener('change',async e=>{
   // Scope this to the exact workbook hash: never discard rows of edited files.
   // A trade-shaped row after the boundary is a hard error, not silently ignored.
   const footerBoundary=612;
-  const confirmedFooterRows=originalReviewMatches?
-   candidateRows.filter(item=>item.position>footerBoundary):[];
+  const confirmedFooterRows=(originalReviewMatches||revisedReviewMatches)?
+   candidateRows.filter(item=>item.position>(revisedReviewMatches?611:footerBoundary)):[];
   const footerTradeConflicts=confirmedFooterRows.filter(({row})=>
    validTypes.has(String(row[typeCol]??'').trim())&&
    String(row[codeCol]??'').trim()&&String(row[dateCol]??'').trim());
@@ -361,6 +364,9 @@ $('excelFile').addEventListener('change',async e=>{
   const needsReview=suspect.filter(({row})=>String(row[dateCol]??'').trim());
   const statusWarning=statusCol<0?'<p class="danger">找不到「狀態」欄：目前無法確認哪些紀錄尚未成交，禁止正式匯入。</p>':'';
   const verifiedRefundCount=refundRows.filter(verifiedRefund).length;
+  const revisedReviewPreview=revisedReviewMatches?
+   '<p><strong>已核實新版 Excel：</strong>第 106 列（9105）為增資退款；第 503、504 列（1802）是兩筆不同成交，均保留；第 611 列（00830）為最後一筆交易／計畫，612 列起為試算與備註。新版第 307 列成交價 20.1、費用 68；第 557 列（2327）付出成本 5,512、費用 2，均已直接存在檔案中，不再套用舊版列號修正。</p>':'';
+
   const reviewedCorrectionsPreview=originalReviewMatches?
    '<p><strong>已核實原始檔修正：</strong>第 307 列成交價使用 20.1（僅匯入資料，不修改 Excel）；'+
    (verifiedDuplicatePair?'第 554、557 列為重複，保留 554、排除 557；':'第 554、557 列待驗證；')+
@@ -369,7 +375,7 @@ $('excelFile').addEventListener('change',async e=>{
    '<p>等待中的交易計畫：'+waitingRows.length+' 列'+(waitingRows.length?'（Excel 第 '+waitingRows.slice(0,15).map(x=>x.position).join('、')+' 列）':'')+'；增資退款：'+refundRows.length+' 列'+(refundRows.length?'（第 '+refundRows.map(x=>x.position).join('、')+' 列）':'')+'。</p>'+
    statusWarning+
    (verifiedRefundCount?'<p>已依原始檔 SHA-256、代號與列號核對：Excel 第 106 列（9105）為妳確認的增資退款，已從成交候選排除。</p>':'')+
-   (originalReviewMatches?'<p>已確認此原始 Excel 的成交／等待清單止於第 612 列；第 613 列起的 '+confirmedFooterRows.length+' 列歸為試算／備註，另行保留列號，不納入交易。'+(footerTradeConflicts.length?' <strong class="danger">但有 '+footerTradeConflicts.length+' 列看似交易，暫停匯入。</strong>':'')+'</p>':'')+
+   ((originalReviewMatches||revisedReviewMatches)?'<p>已核對此 Excel 的成交／等待清單止於第 '+(revisedReviewMatches?611:612)+' 列；其後 '+confirmedFooterRows.length+' 列歸為試算／備註，不納入交易。'+(footerTradeConflicts.length?' <strong class="danger">但有 '+footerTradeConflicts.length+' 列看似交易，暫停匯入。</strong>':'')+'</p>':'')+
    '<p class="muted">等待不代表成交，預設價與數量僅供計畫參考；增資退款應記錄為資金異動，不能當作股票買賣或股息。兩者都尚未寫入雲端。</p></section>';
 
   // Audit optional financial fields without inventing missing values.
@@ -518,7 +524,15 @@ $('excelFile').addEventListener('change',async e=>{
    if(!duplicateGroups.has(key))duplicateGroups.set(key,[]);
    duplicateGroups.get(key).push(record.position);
   }
-  const possibleDuplicates=[...duplicateGroups.values()].filter(positions=>positions.length>1);
+  // Revised workbook rows 503/504 are separate executions: same date,
+  // ticker, quantity and price but different running holdings (150 vs 50).
+  // User confirmed both. Keep both, suppress only this false-positive warning.
+  const confirmedDistinctPair=revisedReviewMatches&&candidateRows.some(x=>x.position===503&&normalizeTicker(x.row[codeCol])==='1802'&&Number(x.row[sharesCol])===-100)&&
+   candidateRows.some(x=>x.position===504&&normalizeTicker(x.row[codeCol])==='1802'&&Number(x.row[sharesCol])===-100);
+  const possibleDuplicates=[...duplicateGroups.values()].flatMap(positions=>{
+   const remaining=confirmedDistinctPair?positions.filter(p=>p!==503&&p!==504):positions;
+   return remaining.length>1?[remaining]:[];
+  });
   const duplicateRowCount=possibleDuplicates.reduce((count,positions)=>count+positions.length,0);
   const existingKeys=new Set(trades.map(t=>signatureParts(t.trade_date,t.ticker,t.transaction_type,t.quantity,t.price,t.dividend_gross,t.wire_fee)).filter(Boolean));
   const potentialCloudMatches=valid.filter(({row})=>{const key=signature(row);return key!==null&&existingKeys.has(key);});
@@ -804,7 +818,7 @@ $('excelFile').addEventListener('change',async e=>{
   const importPlanPreview='<section><strong>正式匯入前的資料寫入計畫（唯讀）</strong>'+
    '<p>準備交易 '+importPlan.rows.length+' 筆；等待計畫 '+waitingRows.length+' 筆；增資退款 '+refundRows.length+' 筆；轉換失敗 '+conversionErrors.length+' 筆。</p>'+
    '<p>來源非空白資料列 '+sourceRows.length+' 筆，已分類 '+accounted.size+' 筆；未分類 '+unaccounted.length+' 筆；重複分類 '+duplicates+' 筆。</p>'+
-   reviewedCorrectionsPreview+correctionDiagnosticPreview+paidCostAudit+unaccountedDetail+conversionDetail+
+   reviewedCorrectionsPreview+revisedReviewPreview+correctionDiagnosticPreview+paidCostAudit+unaccountedDetail+conversionDetail+
    '<p class="muted">原始檔 SHA-256：'+(importPlan.source_sha256||'無法計算')+'；交易資料 SHA-256：'+(importPlan.payload_sha256||'無法計算')+'</p>'+
    '<p><button type="button" id="exportImportPlan">下載匯入計畫（JSON）</button></p>'+
    '<p><button type="button" id="checkImportReadiness">檢查雲端匯入環境（唯讀）</button> <span id="importReadinessResult" aria-live="polite"></span></p>'+
