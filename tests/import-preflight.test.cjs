@@ -94,7 +94,7 @@ assert.equal(x.signature([46000,'0056','現金股息',null,null,100,5]),x.signat
 const classificationStart=html.indexOf("  const validTypes=new Set(['現股','現金股息','股票股利']);");
 const classificationEnd=html.indexOf('  const pendingPreview=',classificationStart);
 assert.ok(classificationStart>0&&classificationEnd>classificationStart,'Classification source block exists');
-const classify=new Function('rows','headerIndex','idx','codeCol','typeCol','dateCol','workbookSha','originalWorkbookSha','normalizeTicker',
+const classify=new Function('rows','headerIndex','idx','codeCol','typeCol','dateCol','workbookSha','originalWorkbookSha','revisedWorkbookSha','sharesCol','normalizeTicker',
  html.slice(classificationStart,classificationEnd)+';return {waitingRows,refundRows,valid,missingCodeRows,needsReview};');
 const sample=[
  {row:['6201','現股','已成交','2026-10-01'],excelRow:10},
@@ -102,7 +102,7 @@ const sample=[
  {row:['6201','增資退款','已成交','2026-10-03'],excelRow:12},
  {row:['','現股','已成交','2026-10-04'],excelRow:13}
 ];
-const sampleResult=classify(sample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,null,'original-sha',v=>String(v).trim().toUpperCase());
+const sampleResult=classify(sample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,null,'original-sha','revised-sha',4,v=>String(v).trim().toUpperCase());
 assert.deepEqual(sampleResult.waitingRows.map(x=>x.position),[11]);
 assert.deepEqual(sampleResult.refundRows.map(x=>x.position),[12]);
 assert.deepEqual(sampleResult.valid.map(x=>x.position),[10]);
@@ -114,10 +114,10 @@ const verifiedSample=[
  {row:['6175','現金股息','已成交','2026-01-03'],excelRow:554},
  {row:['6175','現金股息','已成交','2026-01-03'],excelRow:557}
 ];
-const sameWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'sha-ok','sha-ok',v=>String(v).trim().toUpperCase());
+const sameWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'sha-ok','sha-ok','revised-sha',4,v=>String(v).trim().toUpperCase());
 assert.deepEqual(sameWorkbook.refundRows.map(x=>x.position),[106],'Verified refund must be excluded from trades');
 assert.deepEqual(sameWorkbook.valid.map(x=>x.position),[307,554],'Keep first dividend, exclude confirmed duplicate');
-const editedWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'edited','sha-ok',v=>String(v).trim().toUpperCase());
+const editedWorkbook=classify(verifiedSample,-1,(...names)=>names.includes('狀態')?2:-1,0,1,3,'edited','sha-ok','revised-sha',4,v=>String(v).trim().toUpperCase());
 assert.deepEqual(editedWorkbook.valid.map(x=>x.position),[106,307,554,557],'Do not apply row-based overrides to edited workbook');
 
 assert.ok(html.includes("const paidCostCol=idx('付出成本'"),'Independent paid-cost column must be identified');
