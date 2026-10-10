@@ -1,5 +1,13 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lei 股票紀錄</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#10131d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lei 股票">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <style>
 :root{color-scheme:dark;font-family:system-ui,"Noto Sans TC",sans-serif;background:#10131d;color:#e9eaf4}*{box-sizing:border-box}body{margin:0}header{padding:18px 4%;border-bottom:1px solid #343849;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}main{max-width:1450px;margin:auto;padding:24px 3%}.card{background:#1b2030;border:1px solid #353b50;border-radius:14px;padding:18px;margin:12px 0}.muted{color:#a6aec3;font-size:13px}button,input,select,textarea{background:#272d41;border:1px solid #4b526b;color:#fff;border-radius:8px;padding:10px;font:inherit}button{cursor:pointer}button.primary,.active{background:#7254d1}button:disabled{opacity:.5;cursor:wait}nav{display:flex;gap:8px;flex-wrap:wrap}nav button{padding:10px 16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px;font-size:13px}.field input,.field select{width:100%}.scroll{overflow:auto;max-height:62vh}table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:13px}th,td{padding:10px;border-bottom:1px solid #363b4d;text-align:left}th{position:sticky;top:0;background:#292f43}td.num{text-align:right;font-variant-numeric:tabular-nums}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#message{padding:10px 4%;color:#c8b7ff;min-height:40px}h1{font-size:22px}h2{font-size:18px}small{color:#a6aec3}label{cursor:pointer}.hidden{display:none!important}.danger{color:#ff9c9c}.stat{font-size:23px;font-weight:700}a{color:#bba9ff}
 
@@ -19,7 +27,7 @@
 #overview .scroll{max-height:58vh}
 @media(min-width:800px){#stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.6 · 已填匯費自動確認入帳</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.7 · 支援桌面 App 模式</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
