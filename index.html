@@ -31,8 +31,14 @@
 .other-switch label{font-size:14px;color:#a6aec3;white-space:nowrap}
 .other-switch select{flex:1;max-width:360px;min-height:44px}
 #other [data-other-panel]>.card:first-child{margin-top:0}
+.clearable-input{display:inline-flex;align-items:center;gap:3px;max-width:100%;min-width:0;vertical-align:middle}
+.clearable-input input{flex:1 1 auto;min-width:0;width:100%}
+.field>.clearable-input{width:100%}
+.actions>.clearable-input{flex:1 1 180px}
+.clear-input-button{flex:0 0 36px;width:36px;min-height:40px;padding:0;border:0;background:transparent;color:#a6aec3;font-size:23px;line-height:1}
+.clear-input-button:hover,.clear-input-button:focus-visible{background:#343b51;color:#fff}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.2 · 新增交易按鈕</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.3 · 輸入欄一鍵清空</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -1484,6 +1490,21 @@ function showBackupReminder(){
  $('backupReminder').textContent=days===null?'建議先建立第一份備份':days>=7?'距上次備份已 '+days+' 天，建議重新備份':'距下次每週提醒約 '+(7-days)+' 天';
 }
 showBackupReminder();backupAvailability();
+function initializeClearButtons(){
+ const types=new Set(['text','search','number','email','password','tel','url','date']);
+ document.querySelectorAll('input').forEach(input=>{
+  if(!types.has(input.type)||input.readOnly||input.closest('.clearable-input'))return;
+  const wrapper=document.createElement('span');wrapper.className='clearable-input';
+  if(input.style.minWidth){wrapper.style.minWidth=input.style.minWidth;input.style.minWidth='0';}
+  if(input.style.flex){wrapper.style.flex=input.style.flex;input.style.flex='1 1 auto';}
+  const button=document.createElement('button');button.type='button';button.className='clear-input-button';button.textContent='×';
+  const label=input.getAttribute('aria-label')||input.placeholder||input.closest('label')?.childNodes[0]?.textContent?.trim()||'輸入欄';
+  button.setAttribute('aria-label','清空'+label);button.title='清空'+label;
+  button.onclick=event=>{event.preventDefault();if(input.disabled)return;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));input.focus();};
+  input.before(wrapper);wrapper.append(input,button);
+ });
+}
+initializeClearButtons();
 reset();if(!client){$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('無法載入 Supabase 函式庫',true);return}
 let initialAuthResolved=false;
 let authBootComplete=false;
