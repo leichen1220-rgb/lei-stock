@@ -1,0 +1,14 @@
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+const code=html.slice(html.indexOf('function planMissingNames('),html.indexOf('let pendingNamePlan='));
+const plan=new Function(code+';return planMissingNames;')();
+const rows=[['名稱','代號'],['元大高股息','0056'],['亞弘電','6201'],['元大富櫃50','6201'],['名稱甲','1234'],['名稱乙','1234'],['ETF','00933B']];
+const p=plan(rows,['0056','6201','006201','1234','00933B','9999','6201'],[{ticker:'0056',display_name:'自訂名稱'}]);
+assert.deepEqual(p.add,[{ticker:'6201',display_name:'亞弘電'},{ticker:'006201',display_name:'元大富櫃50'},{ticker:'00933B',display_name:'ETF'}]);
+assert.deepEqual(p.missing,['1234','9999']);assert.deepEqual(p.conflicts,['0056']);assert.equal(p.total,6);
+assert.equal(plan(rows,['0056'],[{ticker:'0056',display_name:'元大高股息'}]).add.length,0);
+assert.throws(()=>plan([['資料']],[],[]),/找不到/);
+const writer=html.slice(html.indexOf("$('importMissingNames').onclick="),html.indexOf("$('tickerform').onsubmit="));
+assert.match(writer,/ignoreDuplicates:true/);assert.match(writer,/plan.owner!==user\?\.id/);
+assert.match(writer,/call\('stock_tickers'/);assert.doesNotMatch(writer,/stock_transactions|stock_commit_import/);
+console.log('PASS: bulk names, exact leading zeros, ETF collision, duplicate conflicts, existing name preservation and metadata-only writes');
