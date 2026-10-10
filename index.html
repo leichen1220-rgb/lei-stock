@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.5 · 暫存日期核對修正｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.6 · 暫存核對檔匯出｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -1028,6 +1028,8 @@ $('excelFile').addEventListener('change',async e=>{
 // Read-only audit of a previously staged batch. Never calls stock_commit_import.
 $('auditStagedBatch').onclick=async()=>{
  const output=$('auditStagedResult'),button=$('auditStagedBatch');
+ document.getElementById('downloadStagedAudit')?.remove();
+ const auditedOwner=user?.id;
  const batchId=$('auditBatchId').value.trim();
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId)){
   output.textContent='請輸入完整的暫存批次 ID（UUID）';return;
@@ -1081,6 +1083,22 @@ $('auditStagedBatch').onclick=async()=>{
    '；來源列號 '+keys.size+' 個；正式帳本 '+ready.account_transactions+' 筆。'+
    (issues.length?' 問題：'+issues.slice(0,5).join('；'):'')+
    '。這是唯讀檢查，未執行正式提交；仍需與原始 Excel 的內容及成本完成最終核帳。';
+  if(passed&&user?.id===auditedOwner){
+   const report={schema_version:1,report_type:'staged_batch_audit',read_only:true,
+    exported_at:new Date().toISOString(),batch_id:batchId,state:batch.state,
+    source_name:batch.source_name,source_sha256:batch.source_sha256,
+    payload_sha256:batch.payload_sha256,row_count:records.length,
+    transaction_types:types,formal_transaction_count:Number(ready.account_transactions),
+    issues,rows:records};
+   const exportButton=document.createElement('button');
+   exportButton.id='downloadStagedAudit';exportButton.type='button';
+   exportButton.textContent='下載暫存核對檔（JSON）';
+   exportButton.onclick=()=>{
+    if(user?.id!==auditedOwner){exportButton.remove();return;}
+    download('股票暫存核對_'+batchId+'.json',JSON.stringify(report,null,2),'application/json;charset=utf-8');
+   };
+   output.after(exportButton);
+  }
  }catch(e){output.textContent='核對中止：'+(e?.message||String(e))+'；未提交任何交易。';}
  finally{button.disabled=false;}
 };
