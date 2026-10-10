@@ -1,0 +1,15 @@
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+const code=html.slice(html.indexOf('function planBankImport(payload,existing){'),html.indexOf("$('bankImportFile').onchange="));const plan=new Function(code+';return planBankImport')();
+const row={ticker:'0056',custodian_bank:'Bank A',payout_bank:'Bank B',account_last4:'0123',note:'配息頻率：季(1/4/7/10)'};
+const payload=rows=>({schema_version:1,report_type:'stock_bank_memos',rows});
+let p=plan(payload([row]),[]);assert.equal(p.add[0].ticker,'0056');assert.equal(p.add[0].account_last4,'0123');assert.equal(p.add[0].note,row.note);
+p=plan(payload([row]),[{ticker:'0056',note:'existing user edit'}]);assert.equal(p.add.length,0);assert.equal(p.skipped,1);
+assert.throws(()=>plan(payload([row,row]),[]),/重複/);
+assert.throws(()=>plan(payload([{...row,account_last4:'123456789012'}]),[]),/末四碼/);
+assert.throws(()=>plan(payload([{...row,note:'123456789012'}]),[]),/完整帳號/);
+assert.throws(()=>plan(payload([{...row,account_number:'123456789012'}]),[]),/不適用欄位/);
+assert.throws(()=>plan(payload([{...row,owner_id:'other'}]),[]),/不適用欄位/);
+assert.throws(()=>plan({rows:[row]},[]),/整理檔/);
+assert.ok(html.includes("onConflict:'owner_id,ticker',ignoreDuplicates:true"));
+console.log('PASS: bank import preserves leading zeros and existing edits, rejects full accounts, duplicates and injected owner fields');

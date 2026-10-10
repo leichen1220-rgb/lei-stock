@@ -22,4 +22,5 @@ jobs:
       - run: node tests/market-prices.test.cjs
       - run: node tests/wire-confirmation.test.cjs
       - run: node tests/name-import.test.cjs
+      - run: node tests/bank-import.test.cjs
       - run: python -m unittest discover -s tests -p '*_test.py'

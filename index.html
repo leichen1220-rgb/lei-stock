@@ -38,7 +38,7 @@
 .clear-input-button{flex:0 0 36px;width:36px;min-height:40px;padding:0;border:0;background:transparent;color:#a6aec3;font-size:23px;line-height:1}
 .clear-input-button:hover,.clear-input-button:focus-visible{background:#343b51;color:#fff}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.4 · 銀行備忘編輯與刪除</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.16.5 · Excel 銀行備忘匯入</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -79,7 +79,7 @@
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
 </div>
 <div id="otherMemo" data-other-panel="memo" class="hidden">
-<div class="card"><h2 id="bankFormTitle">ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><div class="actions"><button type="submit" class="primary" id="bankSaveButton">儲存銀行資料</button><button type="button" id="bankCancelButton" class="hidden">取消編輯</button></div></form><div id="banklist"></div></div>
+<div class="card"><h2 id="bankFormTitle">ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><details class="card"><summary>從 Excel 整理檔匯入銀行備忘</summary><p class="muted">選擇 stock-bank-memos-18.json，可一次載入原 Excel 的銀行資料、帳號末四碼與配息頻率。已存在的代號會保留，不會覆蓋。</p><input id="bankImportFile" type="file" accept=".json,application/json"><p id="bankImportStatus" class="muted" aria-live="polite">尚未選擇銀行備忘檔</p><button id="bankImportButton" type="button" class="primary" disabled>整批匯入銀行備忘</button></details><details id="bankEditor"><summary>＋ 新增銀行備忘</summary><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><div class="actions"><button type="submit" class="primary" id="bankSaveButton">儲存銀行資料</button><button type="button" id="bankCancelButton" class="hidden">取消編輯</button></div></form></details><div id="banklist"></div></div>
 <div class="card"><h2>每日收盤價</h2><p class="muted">來源為證交所／櫃買中心；每日自動檢查更新。休市沿用最近交易日，個別缺價保留原報價日期；非盤中即時行情。</p><div id="priceStatus" class="muted" aria-live="polite"></div><button id="refreshPrices" type="button">更新收盤價</button></div>
 </div>
 </section></section></main>
@@ -418,17 +418,49 @@ $('importMissingNames').onclick=async()=>{
 };
 
 $('tickerform').onsubmit=async e=>{e.preventDefault();const f=e.target.elements;try{await call('stock_tickers',q=>q.upsert({owner_id:user.id,ticker:f.ticker.value.trim().toUpperCase(),display_name:f.display_name.value.trim()},{onConflict:'owner_id,ticker'}).select());e.target.reset();await load();}catch(err){msg(err.message,true)}};
+let pendingBankImport=null;
+function planBankImport(payload,existing){
+ if(payload?.schema_version!==1||payload.report_type!=='stock_bank_memos'||!Array.isArray(payload.rows)||!payload.rows.length||payload.rows.length>5000)throw Error('不是銀行備忘整理檔');
+ const seen=new Set(),existingCodes=new Set(existing.map(b=>b.ticker)),add=[];let skipped=0;
+ for(const r of payload.rows){
+  const allowed=['ticker','custodian_bank','payout_bank','account_last4','note'];
+  if(!r||typeof r!=='object'||Object.keys(r).some(k=>!allowed.includes(k)))throw Error('檔案包含不適用欄位');
+  const clean=k=>r[k]===null||r[k]===undefined?null:typeof r[k]==='string'?r[k].trim()||null:(()=>{throw Error('欄位格式不符')})();
+  const row=Object.fromEntries(allowed.map(k=>[k,clean(k)]));
+  if(!/^(?:[0-9]{4}|00[A-Z0-9]{3,4})$/.test(row.ticker||'')||seen.has(row.ticker))throw Error('代號格式錯誤或重複');
+  if(row.account_last4&&!/^[0-9]{4}$/.test(row.account_last4))throw Error('只接受帳號末四碼');
+  if([row.custodian_bank,row.payout_bank,row.note].some(v=>v&&(/\d{5,}/.test(v)||v.length>500)))throw Error('內容疑似包含完整帳號或過長資料');
+  seen.add(row.ticker);if(existingCodes.has(row.ticker))skipped++;else add.push(row);
+ }
+ return {add,skipped};
+}
+$('bankImportFile').onchange=async e=>{
+ pendingBankImport=null;$('bankImportButton').disabled=true;const file=e.target.files?.[0];if(!file)return;
+ try{if(!user||!cloudDataReady)throw Error('請先完成登入與同步');if(file.size>2000000)throw Error('檔案過大');const owner=user.id,plan=planBankImport(JSON.parse(await file.text()),banks);if(user?.id!==owner)throw Error('登入帳號已變更');pendingBankImport={...plan,owner};$('bankImportStatus').textContent='已檢查：新增 '+plan.add.length+' 筆，保留既有 '+plan.skipped+' 筆。只保存銀行名稱、末四碼與備註。';$('bankImportButton').disabled=!plan.add.length;}
+ catch(err){$('bankImportStatus').textContent='檢查未通過：'+err.message;}
+};
+$('bankImportButton').onclick=async()=>{
+ const plan=pendingBankImport;if(!plan||bankBusy)return;if(user?.id!==plan.owner)return msg('登入帳號已變更，請重新選擇檔案',true);
+ bankBusy=true;$('bankImportButton').disabled=true;$('bankImportFile').disabled=true;
+ try{
+  for(let i=0;i<plan.add.length;i+=200){if(user?.id!==plan.owner)throw Error('登入帳號已變更');await call('stock_etf_banks',q=>q.upsert(plan.add.slice(i,i+200).map(b=>({...b,owner_id:plan.owner})),{onConflict:'owner_id,ticker',ignoreDuplicates:true}).select());}
+  if(user?.id!==plan.owner)throw Error('登入帳號已變更');await load();
+  const missing=plan.add.filter(row=>!banks.some(b=>b.ticker===row.ticker));if(missing.length)throw Error('仍有 '+missing.length+' 筆未同步，請重新選擇檔案後補齊');
+  pendingBankImport=null;resetBankForm();$('bankImportStatus').textContent='已匯入並同步 '+plan.add.length+' 筆銀行備忘；既有資料已保留。';msg('銀行備忘匯入完成，下方可查看與編輯');
+ }catch(err){pendingBankImport=null;$('bankImportStatus').textContent='請重新同步確認匯入結果：'+err.message;}
+ finally{bankBusy=false;$('bankImportFile').disabled=false;}
+};
 function bankListHTML(items){
  if(!items.length)return '<p class="muted">目前沒有銀行備忘。</p>';
  return '<p class="muted">已儲存 '+items.length+' 筆銀行備忘</p>'+items.slice().sort((a,b)=>a.ticker.localeCompare(b.ticker)).map(b=>'<div class="card"><strong>'+esc(b.ticker)+(nameOf(b.ticker)==='—'?'':' '+esc(nameOf(b.ticker)))+'</strong><p>保管銀行：'+esc(b.custodian_bank||'未填')+'<br>入帳銀行：'+esc(b.payout_bank||'未填')+'<br>帳號末四碼：'+esc(b.account_last4||'未填')+'</p>'+(b.note?'<p style="white-space:pre-wrap">備註：'+esc(b.note)+'</p>':'')+'<div class="actions"><button type="button" data-bank-edit="'+esc(b.ticker)+'">編輯</button><button type="button" class="danger" data-bank-delete="'+esc(b.ticker)+'">刪除</button></div></div>').join('');
 }
-function resetBankForm(){editingBank=null;$('bankform').reset();$('bankform').elements.ticker.readOnly=false;$('bankFormTitle').textContent='ETF 銀行備忘';$('bankSaveButton').textContent='儲存銀行資料';$('bankCancelButton').classList.add('hidden');}
+function resetBankForm(){ $('bankEditor').open=false;editingBank=null;$('bankform').reset();$('bankform').elements.ticker.readOnly=false;$('bankFormTitle').textContent='ETF 銀行備忘';$('bankSaveButton').textContent='儲存銀行資料';$('bankCancelButton').classList.add('hidden');}
 function editBank(ticker){
  if(bankBusy||!user)return;
  const b=banks.find(x=>x.ticker===ticker);if(!b)return;
  editingBank={ticker,owner:user.id};const f=$('bankform').elements;
  ['ticker','custodian_bank','payout_bank','account_last4','note'].forEach(k=>f[k].value=b[k]??'');f.ticker.readOnly=true;
- $('bankFormTitle').textContent='編輯銀行備忘 · '+ticker;$('bankSaveButton').textContent='儲存修改';$('bankCancelButton').classList.remove('hidden');show('other');showOtherPage('memo');$('bankFormTitle').scrollIntoView({behavior:'smooth',block:'start'});
+ $('bankEditor').open=true;$('bankFormTitle').textContent='編輯銀行備忘 · '+ticker;$('bankSaveButton').textContent='儲存修改';$('bankCancelButton').classList.remove('hidden');show('other');showOtherPage('memo');$('bankEditor').scrollIntoView({behavior:'smooth',block:'start'});
 }
 $('bankCancelButton').onclick=()=>{if(!bankBusy)resetBankForm();};
 $('banklist').addEventListener('click',async e=>{
