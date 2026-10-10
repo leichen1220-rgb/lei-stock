@@ -1,0 +1,10 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const h=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+const code=h.slice(h.indexOf('function hasFilledWireFee('),h.indexOf('async function load(){'));
+let writes=[];const user={id:'owner-a'};
+const call=async(table,fn)=>{assert.equal(table,'stock_transactions');const q={};for(const method of ['update','eq','not','gte','in'])q[method]=(...args)=>{writes.push([method,...args]);return q;};q.select=()=>[{id:'zero',payment_confirmed:true,wire_fee:0,transaction_type:'現金股息'}];return fn(q);};
+const {hasFilledWireFee,confirmFilledWireFees}=new Function('user','call',code+';return {hasFilledWireFee,confirmFilledWireFees};')(user,call);
+for(const v of [0,'0',6,10.5])assert.equal(hasFilledWireFee({transaction_type:'現金股息',wire_fee:v}),true);
+for(const v of [null,undefined,'',' ',NaN,-1])assert.equal(hasFilledWireFee({transaction_type:'現金股息',wire_fee:v}),false);
+assert.equal(hasFilledWireFee({transaction_type:'現股',wire_fee:6}),false);
+(async()=>{const rows=[{id:'zero',transaction_type:'現金股息',wire_fee:0,payment_confirmed:false},{id:'blank',transaction_type:'現金股息',wire_fee:null,payment_confirmed:false}];const saved=await confirmFilledWireFees('owner-a',rows);assert.equal(saved[0].payment_confirmed,true);assert.equal(saved[1].payment_confirmed,false);assert.ok(writes.some(w=>w[0]==='eq'&&w[1]==='owner_id'&&w[2]==='owner-a'));assert.deepEqual(writes.find(w=>w[0]==='in')[2],['zero']);writes=[];await confirmFilledWireFees('owner-a',saved);assert.equal(writes.length,0);user.id='other';await assert.rejects(()=>confirmFilledWireFees('owner-a',rows),/帳號/);console.log('PASS: filled fee confirms, zero included, blank excluded, owner-scoped persistence and idempotence');})().catch(e=>{console.error(e);process.exitCode=1});
