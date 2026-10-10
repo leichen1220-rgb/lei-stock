@@ -19,6 +19,23 @@ assert.ok(html.includes('dividend_gross:gross'),'Import must convert net dividen
 assert.ok(html.includes('if(conversionErrors.length)blockers.push'),'Invalid conversions must block import');
 assert.ok(html.includes('6201 與 006201 永遠是不同代號'),'Leading-zero distinction must be documented');
 assert.ok(html.includes('const normalizeTicker=v=>'),'Ticker normalizer must exist');
+assert.ok(html.includes('const verifiedEtfCodeNames=new Map(['),'Verified ETF-vs-stock collisions must be explicit');
+assert.ok(html.includes("if(verifiedEtfCodeNames.get(code)!==name)return code;"),'Never restore zeroes without matching exact ETF name');
+assert.ok(html.includes("const restored='00'+code;"),'Restore the original six-digit ETF code');
+assert.ok(html.includes('lookupCode(row[codeIndex],name,headerRow+i+2)'),'Name lookup must use restored ETF codes');
+assert.ok(html.includes("lookupCode(row[ci],row[heads.indexOf('名稱')],hr+i+2,false)"),'Quote lookup must use the same restored ETF codes');
+const etfCodeFnStart=html.indexOf('  const verifiedEtfCodeNames=new Map([');
+const etfCodeFnEnd=html.indexOf('  const existingNames=',etfCodeFnStart);
+assert.ok(etfCodeFnStart>0&&etfCodeFnEnd>etfCodeFnStart,'ETF recovery code must be present');
+const recovered=new Function('normalizeTicker','normalizeDisplayName',html.slice(etfCodeFnStart,etfCodeFnEnd)+';return lookupCode;')(
+ v=>String(v??'').trim().toUpperCase(),v=>String(v??'').normalize('NFKC').trim());
+for(const [short,name] of [['6201','元大富櫃50'],['6203','元大MSCI台灣'],['6204','永豐臺灣加權'],['6205','富邦上証'],['6206','元大上證50'],['6207','FH滬深'],['6208','富邦台50'],['8201','BP上證50']]){
+ assert.equal(recovered(short,name,1,false),'00'+short,'Restore verified ETF '+short);
+}
+assert.equal(recovered('6201','亞弘電',1,false),'6201','Individual stock must not be recoded');
+assert.equal(recovered('006201','元大富櫃50',1,false),'006201','Already padded ETF must stay padded');
+assert.equal(recovered('6201','未知ETF',1,false),'6201','Unverified name must never be silently recoded');
+
 assert.ok(html.includes('internalConflictCodes.add(code)'),'Internal name conflicts must be tracked by exact code');
 assert.ok(html.includes('cloudConflictCodes.add(code)'),'Cloud name conflicts must be tracked by exact code');
 assert.ok(html.includes('new Set([...internalConflictCodes,...cloudConflictCodes])'),'Conflict detection must not parse display messages');
