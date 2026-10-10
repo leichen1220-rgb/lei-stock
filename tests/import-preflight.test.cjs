@@ -9,7 +9,8 @@ assert.match(html,/missingCodeRows=executableRows\.filter/,'Transactions with mi
 assert.match(html,/const blockers=\[\];/,'Import safety gate must exist');
 assert.match(html,/if\(missingCodeRows\.length\)blockers\.push/,'Missing tickers must block import');
 assert.match(html,/if\(potentialCloudMatches\.length\)blockers\.push/,'Cloud duplicate candidates must block import');
-assert.match(html,/目前正式匯入功能維持關閉/,'Import must remain disabled until validated');
+assert.match(html,/Excel 預覽不會直接匯入/,'Excel preview must not directly commit transactions');
+assert.match(html,/stagingFingerprint\(records\)!==reconciledStagingFingerprint/,'Only reconciled content may be committed');
 assert.match(html,/normalize\('NFKC'\)/,'Excel headers must normalize full-width characters');
 assert.match(html,/手續費＆交易稅/,'Source Excel fee header must be recognized');
 assert.match(html,/入賬時間/,'Source Excel payout header must be recognized');
