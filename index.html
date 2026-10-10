@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.3 · 新版 Excel 來源核對｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.14.4 · 新版 Excel 來源核對｜正式匯入未開放</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -576,6 +576,24 @@ $('excelFile').addEventListener('change',async e=>{
   // Stock-code worksheet is authoritative. Normalize invisible/full-width whitespace
   // and case, but never remove meaningful digits or leading zeros.
   const normalizeDisplayName=v=>String(v??'').normalize('NFKC').replace(/[\s\u200B-\u200D\uFEFF]/g,'').trim();
+  // Eight verified ETF-vs-stock collisions in the source lookup sheet.
+  // Restore a lost ETF prefix ONLY for an exact (short code, ETF name) pair.
+  // The identically numbered stock retains its original four-digit code.
+  // Never infer a prefix from the number alone or modify transaction rows.
+  const verifiedEtfCodeNames=new Map([
+   ['6201','元大富櫃50'],['6203','元大MSCI台灣'],
+   ['6204','永豐臺灣加權'],['6205','富邦上証'],
+   ['6206','元大上證50'],['6207','FH滬深'],
+   ['6208','富邦台50'],['8201','BP上證50']
+  ]);
+  const etfCodeRestorations=[];
+  const lookupCode=(rawCode,rawName,excelRow,record=true)=>{
+   const code=normalizeTicker(rawCode),name=normalizeDisplayName(rawName);
+   if(verifiedEtfCodeNames.get(code)!==name)return code;
+   const restored='00'+code;
+   if(record)etfCodeRestorations.push({excel_row:excelRow,original_code:code,restored_code:restored,name});
+   return restored;
+  };
   const existingNames=new Map(tickers.map(t=>[normalizeTicker(t.ticker),normalizeDisplayName(t.display_name)]));
   const proposedNames=new Map(),nameIssues=[],internalConflictCodes=new Set(),cloudConflictCodes=new Set();
   let nameSheetCount=0,nameSheetValid=false;
@@ -589,7 +607,7 @@ $('excelFile').addEventListener('change',async e=>{
     const nameIndex=headings.findIndex(v=>['股票名稱','名稱','個股名稱','證券名稱'].includes(v));
     nameSheetValid=true;
     nameRows.slice(headerRow+1).forEach((row,i)=>{
-     const code=normalizeTicker(row[codeIndex]),name=normalizeDisplayName(row[nameIndex]);
+     const name=normalizeDisplayName(row[nameIndex]),code=lookupCode(row[codeIndex],name,headerRow+i+2);
      // Reject duplicate codes with differing names; never overwrite the first match.
      if(!code&&!name)return;
      nameSheetCount++;
@@ -609,7 +627,7 @@ $('excelFile').addEventListener('change',async e=>{
    if(hr>=0){
     const heads=nameRows[hr].map(clean),ci=heads.indexOf('代號'),qi=heads.indexOf('Numbers代號'),mi=heads.indexOf('上市／櫃');
     nameRows.slice(hr+1).forEach((row,i)=>{
-     const code=normalizeTicker(row[ci]),market=mi<0?'':clean(row[mi]),rawQuote=qi<0?'':clean(row[qi]);
+     const code=lookupCode(row[ci],row[heads.indexOf('名稱')],hr+i+2,false),market=mi<0?'':clean(row[mi]),rawQuote=qi<0?'':clean(row[qi]);
      if(!code)return;
      const quote=rawQuote||((market==='上市'||market==='上櫃')?code+(market==='上市'?'.tw':'.two'):'');
      if(!quote){quoteIssues.push(nameSheet+' 第 '+(hr+i+2)+' 列：'+code+' 缺少可用報價代號／市場別');return;}
@@ -623,6 +641,9 @@ $('excelFile').addEventListener('change',async e=>{
    '<p>成功辨識 '+quoteSymbols.size+' 個報價代號；需核對 '+quoteIssues.length+' 項。'+
    (quoteIssues.length?'問題：'+quoteIssues.slice(0,8).map(esc).join('；'):'')+'</p>'+
    '<p class="muted">報價代號由原始 Numbers代號／上市櫃欄位取得，僅作對照驗證；網頁不會直接執行 Excel 公式，也不會把未驗證報價當成即時股價。</p></section>';
+  const etfCodeAudit='<p class="muted"><strong>ETF 前導零復原：</strong>'+etfCodeRestorations.length+' 列'+
+   (etfCodeRestorations.length?'（'+etfCodeRestorations.map(x=>'第 '+x.excel_row+' 列 '+esc(x.original_code)+' → '+esc(x.restored_code)+' '+esc(x.name)).join('；')+'）':'')+
+   '。僅限已核對的 ETF 名稱與短代號組合；同號個股不更動，交易明細不自動補零。</p>';
   const nameStats={add:0,same:0,conflict:0};
   let internalNameIssues=nameIssues.length;
   for(const [code,name] of proposedNames){
@@ -659,6 +680,7 @@ $('excelFile').addEventListener('change',async e=>{
   const nameSummary=!nameSheet?'<p class="danger">未找到可辨識的股票代號對照工作表；名稱對照預檢尚未完成。</p>':
    !nameSheetValid?'<p class="danger">找到「'+esc(nameSheet)+'」，但無法辨識代號與股票名稱標題；沒有寫入資料。</p>':
    '<p><strong>'+esc(nameSheet)+' 名稱對照預檢：</strong>掃描 '+nameSheetCount+' 列、'+proposedNames.size+' 個不重複代號；預計新增 '+nameStats.add+'、名稱相同略過 '+nameStats.same+'、名稱衝突 '+nameStats.conflict+'、表內缺漏／不一致 '+internalNameIssues+'。</p>'+
+   etfCodeAudit+
    (nameIssues.length?'<p class="danger">名稱差異：'+nameIssues.slice(0,8).map(esc).join('；')+(nameIssues.length>8?'；其餘 '+(nameIssues.length-8)+' 項':'')+'</p>':'');
   // Explicit go/no-go gate. A preview is not permission to write to Supabase.
   const blockers=[];
