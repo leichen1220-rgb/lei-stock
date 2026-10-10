@@ -53,4 +53,9 @@ assert.equal(x.state.valid,true,'stock dividend with explicit zero fee should pa
 assert.equal(x.state.quantity,120);
 x=run([buy,{ticker:'2330',trade_date:'2026-01-02',transaction_type:'股票股利',quantity:20,trade_fees:5}]);
 assert.equal(x.state.valid,false,'stock dividend with nonzero trading fee needs manual review');
-console.log('PASS: 14 cost ledger cases (sale, stock dividend, oversell, missing price, cash dividend, chronological sorting, multiple buys, full liquidation, ticker separation, empty price)');
+x=run([{...buy,quantity:1988,price:1.5,trade_fees:0,paid_cost:2883}]);
+assert.equal(x.state.quantity,1988);
+assert.equal(x.state.cost,2883,'Subscription refund is already included in explicit paid cost');
+x=run([{...buy,paid_cost:-1}]);
+assert.equal(x.state.valid,false,'Invalid explicit cost must not fall back to a guessed cost');
+console.log('PASS: 16 cost ledger cases (sale, stock dividend, oversell, missing price, cash dividend, chronological sorting, multiple buys, full liquidation, ticker separation, empty price)');

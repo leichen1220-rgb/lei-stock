@@ -5,7 +5,7 @@
 
 .calc-sections{display:grid;gap:14px;margin-top:20px}.calc-section{border:1px solid #394159;border-radius:12px;padding:16px;background:#151b2a}.calc-section h3{font-size:15px;margin:0 0 12px;color:#d9d1ff}.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.calc-metric{border-left:3px solid #606b87;padding:7px 12px;background:#20283b;border-radius:5px}.calc-metric small{display:block;color:#b2bbd1;margin-bottom:5px;font-size:12px}.calc-metric strong{font-size:21px;font-variant-numeric:tabular-nums}.calc-metric.profit{border-color:#ed6c76}.calc-metric.loss{border-color:#49b98b}.calc-metric.profit strong{color:#ff8189}.calc-metric.loss strong{color:#65d5a1}.calc-metric.focus{border-color:#b49af7}.calc-metric.focus strong{color:#e2d5ff}.calc-note{font-size:12px;color:#9fa9c0;margin-top:12px}@media(min-width:1050px){.calc-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-section:last-child{grid-column:1/-1}}@media(max-width:550px){.calc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.calc-metric strong{font-size:17px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.0 · 590 筆核帳完成｜正式匯入需確認</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V0.15.1 · 增資認購已補回｜591 筆核帳修正版</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -33,7 +33,7 @@
 <div class="card"><h2>ETF 銀行備忘</h2><p class="muted">只記銀行名稱與可選的末四碼，不填完整帳號。</p><form id="bankform" class="grid"><label class="field">代號<input name="ticker" required></label><label class="field">保管銀行<input name="custodian_bank"></label><label class="field">入帳銀行<input name="payout_bank"></label><label class="field">帳號末四碼<input name="account_last4" maxlength="4" pattern="[0-9]{4}"></label><label class="field">備註<input name="note"></label><button class="primary">儲存銀行資料</button></form><div id="banklist"></div></div>
 <div class="card"><h2>每日收盤價</h2><p class="muted">僅使用已存入資料庫的每日收盤價；不追蹤盤中即時報價。尚未接通每日收盤價更新服務，缺價會顯示「—」，不會假裝是最新價格。</p><div id="priceStatus" class="muted"></div></div>
 <div class="card"><h2>交易試算（不會寫入交易紀錄）</h2><p class="muted">依原始 Excel 試算區重建；調整股價、股數、已付出成本。費率僅在需要時修改，結果為未套用券商整數取捨及最低手續費的估算。</p><div class="grid"><label class="field">股價<input id="calcPrice" type="number" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" step="1" value="1000"></label><label class="field">已付出成本<input id="calcCost" type="number" step="any" value="71428"></label><label class="field">開盤價<input id="calcOpen" type="number" step="any" value="249"></label></div><details><summary>費率設定（平常不必修改）</summary><div class="grid"><label class="field">手續費原始費率<input id="calcRate" type="number" step="any" value="0.001425"></label><label class="field">手續費折扣<input id="calcDiscount" type="number" step="any" value="0.28"></label><label class="field">一般股票交易稅<input id="calcTax" type="number" step="any" value="0.003"></label><label class="field">ETF 交易稅<input id="calcEtfTax" type="number" step="any" value="0.001"></label></div></details><div id="calcResults" class="calc-sections"></div><p class="muted">當沖試算沿用原表的交易稅減半公式；是否適用須依標的及交易規則確認。漲跌幅為理論值，未依台股升降單位取整。</p></div>
-<div class="card"><h2>雲端匯入環境檢查</h2><p class="muted">已安裝 SQL 後，可先確認登入帳號的交易筆數與匯入資格。只讀取資料，不會匯入 Excel，也不會寫入交易。</p><button type="button" id="checkCloudImport">檢查 Supabase 連線（唯讀）</button><p id="cloudImportResult" class="muted" aria-live="polite">尚未檢查</p><details><summary>下一步：核對已暫存批次（唯讀，不會正式匯入）</summary><p class="muted">貼上安全暫存完成後顯示的批次 ID；核對筆數、來源列號、金額欄位與正式帳本狀態。不需重新上傳 Excel。</p><div class="actions"><input id="auditBatchId" type="text" inputmode="text" placeholder="暫存批次 UUID" aria-label="暫存批次 ID" style="min-width:min(100%,340px);flex:1"><button type="button" id="auditStagedBatch">核對暫存 590 筆（唯讀）</button></div><p id="auditStagedResult" class="muted" aria-live="polite">尚未核對</p></details></div><div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div>
+<div class="card"><h2>雲端匯入環境檢查</h2><p class="muted">已安裝 SQL 後，可先確認登入帳號的交易筆數與匯入資格。只讀取資料，不會匯入 Excel，也不會寫入交易。</p><button type="button" id="checkCloudImport">檢查 Supabase 連線（唯讀）</button><p id="cloudImportResult" class="muted" aria-live="polite">尚未檢查</p><details open><summary>載入 591 筆核帳修正版（含增資認購與退款）</summary><p class="muted">選擇核帳修正版 JSON。先在本機檢查；按「安全暫存修正版」才送到雲端暫存，不會直接寫入正式帳本。原有 590 筆暫存不會被覆蓋。</p><input id="reviewedImportFile" type="file" accept=".json,application/json"><button id="stageReviewedImport" type="button" disabled>安全暫存修正版 591 筆</button><p id="reviewedImportStatus" class="muted" aria-live="polite">尚未選擇修正版</p></details><details><summary>下一步：核對已暫存批次（唯讀，不會正式匯入）</summary><p class="muted">貼上安全暫存完成後顯示的批次 ID；核對筆數、來源列號、金額欄位與正式帳本狀態。不需重新上傳 Excel。</p><div class="actions"><input id="auditBatchId" type="text" inputmode="text" placeholder="暫存批次 UUID" aria-label="暫存批次 ID" style="min-width:min(100%,340px);flex:1"><button type="button" id="auditStagedBatch">核對暫存批次（唯讀）</button></div><p id="auditStagedResult" class="muted" aria-live="polite">尚未核對</p></details></div><div class="card"><h2>Excel 匯入預覽（本機處理）</h2><p class="muted">選擇原始 Excel，瀏覽器只讀取「股票明細」工作表並預覽，不會自動上傳。銀行帳號與其他工作表完全不讀入雲端。正式寫入前仍需完成公式與欄位核對。</p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv"><div id="excelPreview" class="muted">尚未選擇檔案</div></div><div class="card"><h2>備份與資料匯出</h2><p class="muted">一鍵下載 ZIP（內含 Excel、JSON 與備份清單；目前 Excel 為新系統欄位格式，尚未完全還原舊 Excel 公式）；亦可單獨下載 CSV。請將備份保存在安全位置；JSON 可能含私人交易資訊。還原匯入與 Excel 原格式匯入仍需完成核對，暫不開放。</p><div class="actions"><button id="backupBoth" class="primary">一鍵雙重備份 ZIP</button><button id="backup">單獨下載 JSON</button><button id="csv">下載交易 CSV</button><span id="backupdate" class="muted"></span><span id="backupReminder" class="muted"></span></div>
 <div style="margin-top:16px;border-top:1px solid #394159;padding-top:16px">
 <h3>備份還原預檢（不寫入雲端）</h3>
 <p class="muted">可檢查本系統產生的 ZIP 或 JSON 備份：驗證檔案格式、筆數、交易必要欄位及重複 ID。此功能只讀取檔案，不會新增、刪除或覆蓋任何資料。</p>
@@ -171,7 +171,11 @@ function estimateCostLedger(){
   }else if(!Number.isFinite(price)||price<=0||qty===0){
    st.valid=false;warnings.push(ticker+'：'+t.trade_date+' 成交價或股數無效');
   }else if(qty>0){
-   st.quantity+=qty;st.cost+=qty*price+fee;
+   const hasPaidCost=t.paid_cost!==null&&t.paid_cost!==undefined&&t.paid_cost!=='';
+   const paidCost=hasPaidCost?Number(t.paid_cost):qty*price+fee;
+   if(!Number.isFinite(paidCost)||paidCost<0){
+    st.valid=false;warnings.push(ticker+'：'+t.trade_date+' 付出成本無效');
+   }else{st.quantity+=qty;st.cost+=paidCost;}
   }else{
    const sold=-qty;
    if(sold>st.quantity+0.000001){
@@ -464,7 +468,7 @@ $('excelFile').addEventListener('change',async e=>{
    (paidCostInvalidRows.length?'異常 Excel 列號：'+paidCostInvalidRows.slice(0,15).map(x=>x.excel_row).join('、')+'。':'')+
    (paidCostProfitRows.length?'獲利類列號（僅供核對）：'+paidCostProfitRows.slice(0,18).map(x=>x.excel_row+'（'+esc(x.status)+'）').join('、')+(paidCostProfitRows.length>18?' 等':'')+'。':'')+
    (paidCost558Review?'第 558 列確認 5,512 元；來源值 '+esc(String(paidCost558Review.source_value))+'。':'')+
-   '目前資料庫尚無獨立付出成本欄位，正式匯入前須完成成本保存與核帳。</p>';
+   '成本欄位以上方雲端檢查結果為準；正式匯入請使用 591 筆核帳修正版。</p>';
   // Source workbook uses the exact labels 手續費＆交易稅 and 實領\\n股息.
   // Dividend rows can contain formula errors in the fee column; that column
   // applies to 現股 only and must not be treated as a cash-dividend fee.
@@ -865,6 +869,7 @@ $('excelFile').addEventListener('change',async e=>{
   // proves migration 06 is installed. Production commit stays disabled.
   // The reviewed 5,512 cost remains in the audit even when row 558 itself
   // fails the separate trade conversion checks.
+  blockers.push('原始 Excel 僅供預覽；請使用上方 591 筆核帳修正版，避免漏掉增資認購');
   importPlan.blockers=[...blockers];
   importPlan.production_import_blockers=[...blockers,
    'Excel 預覽不直接提交；已核帳批次可在上方核對後正式匯入'];
@@ -1025,9 +1030,64 @@ $('excelFile').addEventListener('change',async e=>{
   };
  }catch(err){out.textContent='讀取失敗：'+err.message;}
 });
-// Canonical fingerprint of the exact 590 rows reconciled against the source workbook.
+// Canonical fingerprint of the exact 591 rows reconciled against the source workbook.
 // Only the fingerprint is published; private transaction contents stay in Supabase.
-const reconciledStagingFingerprint='ff6175aedd745b4ef405095b94a4e7170fece076478af147c0562d19f6d734bb';
+const reconciledStagingFingerprint='78575409b16e323c9d4acd0805b41d80eeaa0f3efa50f2efb2617be182a7a1dc';
+let reviewedImportPlan=null,reviewedImportOwner=null;
+$('reviewedImportFile').onchange=async event=>{
+ const output=$('reviewedImportStatus'),button=$('stageReviewedImport');
+ reviewedImportPlan=null;reviewedImportOwner=null;button.disabled=true;
+ const file=event.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>10*1024*1024)throw Error('修正版檔案過大');
+  const plan=JSON.parse(await file.text());
+  if(plan.schema_version!==1||plan.report_type!=='reconciled_initial_import'||
+    plan.row_count!==591||!Array.isArray(plan.rows)||plan.rows.length!==591||
+    !/^[a-f0-9]{64}$/.test(plan.source_sha256||'')||
+    await stagingFingerprint(plan.rows)!==reconciledStagingFingerprint)
+   throw Error('內容不是已核帳的 591 筆修正版');
+  if(!user)throw Error('請先登入，再選擇修正版');
+  reviewedImportPlan=plan;reviewedImportOwner=user.id;button.disabled=false;
+  output.textContent='本機核對通過：591 筆。已保留增資認購 1,988 股，退款 99 元已扣入實付成本 2,883 元；泰金寶持股為 517 股。尚未寫入雲端。';
+ }catch(e){output.textContent='修正版檢查未通過：'+(e?.message||String(e));}
+};
+$('stageReviewedImport').onclick=async()=>{
+ const button=$('stageReviewedImport'),output=$('reviewedImportStatus'),plan=reviewedImportPlan;
+ if(button.disabled||!plan)return;
+ if(!user||user.id!==reviewedImportOwner||!cloudDataReady){output.textContent='請登入原帳號並完成同步，再選擇修正版';return;}
+ if(!window.confirm('將已核帳的 591 筆修正版送入雲端暫存？\n包含增資認購與退款；不會直接寫入正式帳本。'))return;
+ button.disabled=true;
+ try{
+  const {data:ready,error:readyError}=await client.rpc('stock_import_readiness');
+  if(readyError)throw readyError;
+  if(ready?.schema_version!==1||Number(ready.account_transactions)!==0||ready.initial_import_allowed!==true)
+   throw Error('正式帳本不是空白，停止初次匯入');
+  const {data:cap,error:capError}=await client.rpc('stock_paid_cost_readiness');
+  if(capError)throw capError;
+  if(cap?.schema_version!==1||cap.paid_cost_column!==true||cap.commit_function_updated!==true)throw Error('付出成本 SQL 06 未安裝');
+  if(await stagingFingerprint(plan.rows)!==reconciledStagingFingerprint)throw Error('修正版內容已變更');
+  const rows=[...plan.rows].sort((a,b)=>a.excel_row-b.excel_row)
+   .map(r=>({excel_row:r.excel_row,transaction:r.transaction_data}));
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(rows)));
+  const payloadSha=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  if(user?.id!==reviewedImportOwner)throw Error('登入帳號已變更');
+  output.textContent='正在安全暫存修正版…';
+  const {data:result,error}=await client.rpc('stock_stage_import',{
+   p_source_name:plan.source_name,p_source_sha256:plan.source_sha256,
+   p_payload_sha256:payloadSha,p_rows:rows});
+  if(error)throw error;
+  if(result?.state!=='staged'||Number(result.rows)!==591||!/^[0-9a-f-]{36}$/i.test(result.batch_id||''))
+   throw Error('暫存回應不符預期');
+  const stored=await readStagedTransactions(result.batch_id);
+  if(stored.length!==591||await stagingFingerprint(stored)!==reconciledStagingFingerprint)
+   throw Error('雲端暫存內容與修正版不同');
+  $('auditBatchId').value=result.batch_id;
+  $('auditBatchId').closest('details').open=true;
+  output.textContent='修正版 591 筆已安全暫存並逐筆核對。新批次：'+result.batch_id+'；請在下方先下載備份，再確認正式匯入。';
+  await $('auditStagedBatch').onclick();
+ }catch(e){output.textContent='暫存結果需核對：'+(e?.message||String(e))+'。尚未執行正式匯入。';}
+ finally{button.disabled=false;}
+};
 async function stagingFingerprint(records){
  const canonical=JSON.stringify([...records].sort((a,b)=>a.excel_row-b.excel_row)
   .map(r=>[Number(r.excel_row),Object.keys(r.transaction_data).sort()
@@ -1049,11 +1109,11 @@ async function readStagedTransactions(batchId){
 async function commitReconciledBatch(batchId,auditedOwner,button,output){
  if(button.disabled)return;
  if(user?.id!==auditedOwner||!cloudDataReady){output.textContent='請先登入原核對帳號並完成同步';return;}
- if(!window.confirm('將已逐筆核帳的 590 筆交易寫入正式帳本？\n現股 332、現金股息 251、股票股利 7。\n19 筆等待交易及 1 筆退款不會寫入。'))return;
+ if(!window.confirm('將已逐筆核帳的 591 筆交易寫入正式帳本？\n現股 333、現金股息 251、股票股利 7。\n19 筆等待交易不寫入；增資認購及退款已納入成本。'))return;
  button.disabled=true;
  let submitted=false,committed=false;
  try{
-  output.textContent='提交前重新確認帳本、成本欄位及 590 筆完整內容…';
+  output.textContent='提交前重新確認帳本、成本欄位及 591 筆完整內容…';
   const {data:ready,error:readyError}=await client.rpc('stock_import_readiness');
   if(readyError)throw readyError;
   if(ready?.schema_version!==1||ready.initial_import_allowed!==true||Number(ready.account_transactions)!==0)
@@ -1064,31 +1124,28 @@ async function commitReconciledBatch(batchId,auditedOwner,button,output){
    throw Error('付出成本資料庫升級未通過');
   const {data:batches,error:batchError}=await client.from('stock_import_batches').select('*').eq('id',batchId).limit(1);
   if(batchError)throw batchError;
-  if(batches?.[0]?.state!=='staged'||Number(batches[0].row_count)!==590)
+  if(batches?.[0]?.state!=='staged'||Number(batches[0].row_count)!==591)
    throw Error('批次已變更或已提交，請重新同步');
   const records=await readStagedTransactions(batchId);
-  if(records.length!==590||await stagingFingerprint(records)!==reconciledStagingFingerprint)
-   throw Error('暫存內容與已核帳的 590 筆不同，禁止提交');
+  if(records.length!==591||await stagingFingerprint(records)!==reconciledStagingFingerprint)
+   throw Error('暫存內容與已核帳的 591 筆不同，禁止提交');
   if(user?.id!==auditedOwner)throw Error('登入帳號已變更');
-  const snapshot={version:1,exported_at:new Date().toISOString(),transactions:trades,
-   tickers,banks,closing_prices:prices,staged_batch:{batch_id:batchId,rows:records}};
-  download('股票匯入前備份_'+today()+'.json',JSON.stringify(snapshot,null,2),'application/json;charset=utf-8');
-  output.textContent='正在正式匯入 590 筆交易…';
+  output.textContent='正在正式匯入 591 筆交易…';
   submitted=true;
   const {data:result,error:commitError}=await client.rpc('stock_commit_import',{
-   p_batch_id:batchId,p_expected_rows:590});
+   p_batch_id:batchId,p_expected_rows:591});
   if(commitError)throw commitError;
-  if(result?.batch_id!==batchId||result.state!=='committed'||Number(result.rows)!==590)
+  if(result?.batch_id!==batchId||result.state!=='committed'||Number(result.rows)!==591)
    throw Error('提交回應不符預期，請重新同步核對');
   committed=true;
   await load();
-  if(!cloudDataReady||trades.length!==590)throw Error('提交已完成，但重新讀取正式帳本尚未通過');
+  if(!cloudDataReady||trades.length!==591)throw Error('提交已完成，但重新讀取正式帳本尚未通過');
   const actual=trades.map(t=>({excel_row:Number(t.sequence_no),transaction_data:
    Object.fromEntries(Object.keys(records[0].transaction_data).map(k=>[k,t[k]??null]))}));
   if(await stagingFingerprint(actual)!==reconciledStagingFingerprint)
    throw Error('提交已完成，但正式帳本內容需要進一步核對');
   button.remove();
-  output.textContent='已正式匯入並逐筆核對 590 筆：現股 332、現金股息 251、股票股利 7。付出成本已保存；請到「備份與資料匯出」下載雙重備份 ZIP。';
+  output.textContent='已正式匯入並逐筆核對 591 筆：現股 333、現金股息 251、股票股利 7。付出成本已保存；請到「備份與資料匯出」下載雙重備份 ZIP。';
  }catch(e){
   output.textContent=(committed?'正式提交已完成；':submitted?'提交結果需要重新同步確認；':'尚未提交；')+
    (e?.message||String(e))+'。';
@@ -1101,6 +1158,7 @@ $('auditStagedBatch').onclick=async()=>{
  const output=$('auditStagedResult'),button=$('auditStagedBatch');
  document.getElementById('downloadStagedAudit')?.remove();
  document.getElementById('commitReconciledImport')?.remove();
+ document.getElementById('downloadImportSnapshot')?.remove();
  const auditedOwner=user?.id;
  const batchId=$('auditBatchId').value.trim();
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId)){
@@ -1121,7 +1179,7 @@ $('auditStagedBatch').onclick=async()=>{
   const records=await readStagedTransactions(batchId);
   const issues=[],keys=new Set(),types={};
   if(records.length!==Number(batch.row_count))issues.push('暫存筆數與批次宣告不符');
-  if(records.length!==590)issues.push('筆數不是本次預期的 590 筆');
+  if(records.length!==591)issues.push('筆數不是本次預期的 591 筆');
   for(const item of records){
    const n=Number(item.excel_row),t=item.transaction_data||{};
    if(!Number.isSafeInteger(n)||n<2||keys.has(n))issues.push('來源列號重複或無效：'+item.excel_row);
@@ -1166,10 +1224,22 @@ $('auditStagedBatch').onclick=async()=>{
    if(await stagingFingerprint(records)===reconciledStagingFingerprint&&user?.id===auditedOwner){
     const commitButton=document.createElement('button');
     commitButton.id='commitReconciledImport';commitButton.type='button';commitButton.className='primary';
-    commitButton.textContent='正式匯入已核帳的 590 筆';
+    commitButton.textContent='正式匯入已核帳的 591 筆';
+    commitButton.disabled=true;
+    const backupButton=document.createElement('button');
+    backupButton.id='downloadImportSnapshot';backupButton.type='button';
+    backupButton.textContent='先下載匯入前備份';
+    backupButton.onclick=()=>{
+     if(user?.id!==auditedOwner||!cloudDataReady)return;
+     const snapshot={version:1,exported_at:new Date().toISOString(),transactions:trades,
+      tickers,banks,closing_prices:prices,staged_batch:{batch_id:batchId,rows:records}};
+     download('股票匯入前備份_'+today()+'.json',JSON.stringify(snapshot,null,2),'application/json;charset=utf-8');
+     commitButton.disabled=false;
+     output.textContent+=' 備份下載已啟動；完成儲存後，再按正式匯入。';
+    };
     commitButton.onclick=()=>commitReconciledBatch(batchId,auditedOwner,commitButton,output);
-    exportButton.after(commitButton);
-    output.textContent+=' 此批已與原始 Excel 逐筆核帳，7,080 個欄位無差異，可按下方按鈕確認正式匯入。';
+    exportButton.after(backupButton,commitButton);
+    output.textContent+=' 此批已與原始 Excel 逐筆核帳，增資認購與退款也已納入，先下載匯入前備份，完成後再確認正式匯入。';
    }
   }
  }catch(e){output.textContent='核對中止：'+(e?.message||String(e))+'；未提交任何交易。';}
