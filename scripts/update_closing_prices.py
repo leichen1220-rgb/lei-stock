@@ -1,5 +1,7 @@
 """Download public TWSE/TPEx closes only. No accounts or portfolio data."""
 import datetime as dt
+import csv
+import io
 import json
 import math
 import re
@@ -14,6 +16,15 @@ SOURCES = {
     'TPEX': ('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes', 'SecuritiesCompanyCode', 'Close'),
 }
 OUTPUT = Path(__file__).resolve().parents[1] / 'data/closing-prices.json'
+TWSE_CSV_URL = 'https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=open_data'
+
+def parse_twse_csv(text):
+    reader = csv.DictReader(io.StringIO(text.lstrip('\ufeff')))
+    if not {'日期', '證券代號', '收盤價'}.issubset(reader.fieldnames or []):
+        raise ValueError('Invalid official CSV headers')
+    rows = [{'Date': row['日期'], 'Code': row['證券代號'],
+             'ClosingPrice': row['收盤價']} for row in reader]
+    return normalize_rows('TWSE', rows)
 
 def parse_date(value):
     text = str(value).strip().replace('/', '').replace('-', '')
@@ -50,16 +61,41 @@ def normalize_rows(market, rows):
         raise ValueError('Too few valid closes')
     return quotes
 
-def fetch_market(market):
+def fetch_source(market, url, csv_format=False):
     for attempt in range(3):
         try:
-            request = urllib.request.Request(SOURCES[market][0], headers={'User-Agent': 'Mozilla/5.0 (LeiStockClosingPrices)', 'Accept': 'application/json', 'Connection': 'close'})
+            request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (LeiStockClosingPrices)', 'Accept': 'text/csv' if csv_format else 'application/json', 'Connection': 'close'})
             with urllib.request.urlopen(request, timeout=40) as response:
+                if csv_format:
+                    return parse_twse_csv(response.read().decode('utf-8-sig'))
                 return normalize_rows(market, json.load(response))
         except Exception:
             if attempt == 2:
                 raise
             time.sleep(2)
+
+def select_latest_source(candidates):
+    # Prefer CSV on equal dates; never infer trading date from a download filename.
+    if not candidates:
+        raise ValueError('No valid official source')
+    url, quotes = max(candidates, key=lambda item: max(q['price_date'] for q in item[1].values()))
+    return quotes, url
+
+def fetch_market(market):
+    if market != 'TWSE':
+        return fetch_source(market, SOURCES[market][0]), SOURCES[market][0]
+    candidates = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        jobs = [(TWSE_CSV_URL, pool.submit(fetch_source, market, TWSE_CSV_URL, True)),
+                (SOURCES[market][0], pool.submit(fetch_source, market, SOURCES[market][0]))]
+        for url, future in jobs:
+            try:
+                quotes = future.result()
+                candidates.append((url, quotes))
+                print('TWSE source: ' + url + ' date=' + max(q['price_date'] for q in quotes.values()))
+            except Exception as error:
+                print('TWSE source unavailable: ' + url + ' (' + type(error).__name__ + ')')
+    return select_latest_source(candidates)
 
 def merge_market(previous, incoming):
     result = dict(previous)
@@ -76,14 +112,14 @@ def main():
         futures = {market: pool.submit(fetch_market, market) for market in SOURCES}
         for market, future in futures.items():
             try:
-                incoming = future.result()
+                incoming, selected_url = future.result()
                 old_market = {k: q for k, q in all_quotes.items() if q['market'] == market}
                 if old_market and max(q['price_date'] for q in incoming.values()) < max(q['price_date'] for q in old_market.values()):
                     raise ValueError('Official response regressed')
                 all_quotes = merge_market(all_quotes, incoming)
-                status[market] = {'url': SOURCES[market][0], 'price_date': max(q['price_date'] for q in incoming.values()), 'status': 'ok'}
+                status[market] = {'url': selected_url, 'price_date': max(q['price_date'] for q in incoming.values()), 'status': 'ok'}
             except Exception as error:
-                status[market] = {**old.get('sources', {}).get(market, {}), 'url': SOURCES[market][0], 'status': 'retained', 'error': type(error).__name__}
+                status[market] = {**old.get('sources', {}).get(market, {}), 'status': 'retained', 'error': type(error).__name__}
                 print(market + ': retained previous prices (' + type(error).__name__ + ')')
     if not all_quotes:
         raise RuntimeError('No official prices available; previous file left unchanged')
