@@ -22,8 +22,9 @@ assert.ok(html.includes("client.rpc('stock_paid_cost_readiness')"),'Client check
 assert.ok(html.includes('trade_fees:fees,paid_cost:paidCost'),'Client includes paid-cost payload');
 console.log('PASS: paid-cost migration static invariants (Supabase execution not tested)');
 
-assert.ok(html.includes("['paid_cost','付出成本']"),'Excel ZIP backup must retain paid cost');
-assert.ok(html.includes("'trade_fees','paid_cost','dividend_gross'"),'CSV backup must retain paid cost');
+const exporter=fs.readFileSync("scripts/excel-export.js","utf8");
+assert.ok(exporter.includes("t.paid_cost")&&html.includes("LeiStockExport.buildWorkbook(excelExportData(),XLSX)"),"Excel ZIP backup must retain paid cost");
+assert.ok(html.includes("cell?.v")&&exporter.includes("put('I',r,paid"),"CSV backup must retain paid cost");
 
 assert.ok(sql.includes('do $constraint_guard$'),'Repeat migration must preserve existing cost constraint');
 assert.ok(!sql.includes('drop constraint if exists stock_transactions_paid_cost_nonnegative'),'Do not drop existing cost constraint');
