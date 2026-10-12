@@ -1,0 +1,3 @@
+[functions.portfolio-publisher]
+# Platform JWT check plus explicit Auth verification and owner allowlist.
+verify_jwt = true

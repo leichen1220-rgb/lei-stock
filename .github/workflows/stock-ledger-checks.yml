@@ -26,4 +26,5 @@ jobs:
       - run: node tests/bank-import.test.cjs
       - run: node tests/trade-filters.test.cjs
       - run: node tests/excel-export.test.cjs
+      - run: node tests/public-portfolio.test.cjs
       - run: python -m unittest discover -s tests -p '*_test.py'

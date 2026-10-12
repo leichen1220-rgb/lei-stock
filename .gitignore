@@ -1,0 +1,5 @@
+
+# Never commit function credentials
+supabase/.temp/
+supabase/functions/.env*
+*.secrets.env
