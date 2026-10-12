@@ -10,7 +10,7 @@
   const totals=new Map(),last=new Map();rows.forEach((t,i)=>{if(t.transaction_type!=='現金股息')totals.set(t.ticker,(totals.get(t.ticker)||0)+Number(t.quantity||0));last.set(t.ticker,i);});
   const ws=XLSX.utils.aoa_to_sheet([HEADERS]),states=new Map();
   function put(col,r,value,formula,format){if(!present(value)&&!formula)return;const cell={t:typeof value==='number'?'n':typeof value==='boolean'?'b':'s',v:value??''};if(formula)cell.f=formula;if(format)cell.z=format;ws[col+r]=cell;}
-  const num='#,##0.##;[Red]-#,##0.##',day='yyyy-mm-dd';
+  const num='#,##0.##;-#,##0.##',profit='[Red]#,##0.##;[Green]-#,##0.##',day='yyyy-mm-dd';
   rows.forEach((t,i)=>{
    const r=i+2,kind=t.transaction_type,q=kind==='現金股息'?0:Number(t.quantity||0),price=present(t.price)?Number(t.price):null,fee=present(t.trade_fees)?Number(t.trade_fees):null,gross=present(t.dividend_gross)?Number(t.dividend_gross):null,wire=present(t.wire_fee)?Number(t.wire_fee):null;
    const st=states.get(t.ticker)||{quantity:0,paid:0,dividend:0,invalid:false};st.quantity+=q;
@@ -33,7 +33,7 @@
    put('P',r,st.quantity>0&&!st.invalid?Math.max(0,-balance/st.quantity):null,'IF(AND(E'+r+'>0,ISNUMBER(O'+r+')),MAX(0,-O'+r+'/E'+r+'),"")',num);
    put('Q',r,serialDate(t.payment_date),null,day);put('R',r,kind==='現金股息'?(t.payment_confirmed?'已入帳':'待確認'):'');
    put('S',r,isLast&&quote?Number(quote.close_price):null,null,num);
-   put('T',r,isLast&&quote&&!st.invalid?Number(quote.close_price)*finalQty+balance:null,'IF(AND(ISNUMBER(S'+r+'),ISNUMBER(O'+r+')),S'+r+'*AB'+r+'+O'+r+',"")',num);
+   put('T',r,isLast&&!st.invalid&&(quote||finalQty===0)?(quote?Number(quote.close_price)*finalQty:0)+balance:null,'IF(COUNTIF($B$2:B'+r+',B'+r+')=COUNTIF($B$2:$B$'+(rows.length+1)+',B'+r+'),IF(ISNUMBER(O'+r+'),IF(AB'+r+'=0,O'+r+',IF(ISNUMBER(S'+r+'),S'+r+'*AB'+r+'+O'+r+',"")),""),"")',profit);
    put('W',r,st.invalid?'待補成本':-st.paid,'IF('+missing+',"待補成本",-SUMIF($B$2:B'+r+',B'+r+',$I$2:I'+r+'))',num);
    put('X',r,st.quantity&&!st.invalid?-st.paid/st.quantity:null,'IF(AND(E'+r+'<>0,ISNUMBER(W'+r+')),W'+r+'/E'+r+',"")',num);
    put('Z',r,Number(t.trade_date.slice(0,4)),'YEAR(J'+r+')','0');put('AA',r,Number(t.trade_date.slice(5,7)),'MONTH(J'+r+')','0');
@@ -43,7 +43,7 @@
   ws['!ref']='A1:AI'+(rows.length+1);ws['!cols']=[8,9,22,10,11,12,11,14,13,14,14,9,12,13,15,18,14,12,12,15,13,13,16,20,20,9,9,14,14,13,28,11,37,14,16].map(wch=>({wch}));ws['!rows']=[{hpt:32}];ws['!autofilter']={ref:'A1:AI'+(rows.length+1)};
   XLSX.utils.book_append_sheet(wb,ws,'股票明細');
   const holdings=[...states].filter(([ticker,st])=>st.quantity>0).sort(([a],[b])=>a.localeCompare(b)).map(([ticker,st])=>{const quote=quotes.get(ticker);return {代號:ticker,股票名稱:nameMap.get(ticker)||'',持有股數:st.quantity,含股息成本:st.invalid?'待補成本':Math.max(0,st.paid-st.dividend),實際淨投入:st.invalid?'待補成本':st.paid-st.dividend,累計淨股息:st.dividend,收盤價:quote?.close_price??'',報價日期:quote?.price_date||'',市值:quote?st.quantity*quote.close_price:'',累計損益:quote&&!st.invalid?st.quantity*quote.close_price-st.paid+st.dividend:''};});
-  function append(name,records,widths){const sheet=XLSX.utils.json_to_sheet(records);sheet['!cols']=widths.map(wch=>({wch}));if(sheet['!ref'])sheet['!autofilter']={ref:sheet['!ref']};XLSX.utils.book_append_sheet(wb,sheet,name);}
+  function append(name,records,widths){const sheet=XLSX.utils.json_to_sheet(records),keys=Object.keys(records[0]||{});records.forEach((record,r)=>keys.forEach((key,c)=>{let column='',n=c+1;while(n){column=String.fromCharCode(65+(n-1)%26)+column;n=Math.floor((n-1)/26);}const cell=sheet[column+(r+2)];if(!cell)return;if(typeof record[key]==='number')cell.z=key==='累計損益'?profit:num;else if(key.endsWith('日期')&&/^\d{4}-\d{2}-\d{2}$/.test(record[key])){cell.v=serialDate(record[key]);cell.t='n';cell.z=day;}else if(['代號','帳號末四碼'].includes(key))cell.z='@';}));sheet['!cols']=widths.map(wch=>({wch}));if(sheet['!ref'])sheet['!autofilter']={ref:sheet['!ref']};XLSX.utils.book_append_sheet(wb,sheet,name);}
   append('持股總覽',holdings,[10,24,12,16,16,15,12,14,16,16]);
   append('個股代號',data.tickers.map(t=>({代號:t.ticker,名稱:t.display_name})),[12,30]);
   append('ETF 保管銀行',data.banks.map(b=>({代號:b.ticker,名稱:nameMap.get(b.ticker)||'',保管銀行:b.custodian_bank||'',配息頻率:(b.note||'').startsWith('配息頻率：')?b.note.slice(5):'',配息匯款帳戶:b.payout_bank||'',帳號末四碼:b.account_last4||'',備註:b.note||''})),[12,26,18,22,18,14,30]);
