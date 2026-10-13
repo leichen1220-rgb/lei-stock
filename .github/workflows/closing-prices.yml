@@ -1,10 +1,10 @@
 name: Update official closing prices
 on:
   schedule:
-    # Taiwan 07:43 daily; hourly 14:43–19:43 on weekdays after the close.
+    # Taiwan 07:43 daily; hourly 14:43–23:43 on weekdays after the close.
     # Official publication can lag the market close; preserve dated prior quotes.
     - cron: '43 23 * * *'
-    - cron: '43 6-11 * * 1-5'
+    - cron: '43 6-15 * * 1-5'
   workflow_dispatch:
   push:
     branches: [main]
