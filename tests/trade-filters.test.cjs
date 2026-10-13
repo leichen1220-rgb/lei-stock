@@ -26,3 +26,9 @@ assert.deepEqual(result([],{sort:'quantity',direction:'desc'}),['a','f','e','d',
 assert.equal(f.activeRule(rule('quantity','eq',0)),true);
 const original=JSON.stringify(rows);result([rule('quantity','gt','0')]);assert.equal(JSON.stringify(rows),original);
 console.log('PASS: combined/OR filters, zero versus blank, dates, multiselect, exact ETF codes, account flags, sorting and immutable data');
+const payout={transaction_type:'現金股息',dividend_gross:320.46,wire_fee:10.46};
+assert.equal(f.valueOf(payout,'dividend_net'),310);
+assert.equal(f.valueOf({...payout,wire_fee:0},'dividend_net'),320.46);
+assert.equal(f.valueOf({...payout,wire_fee:null},'dividend_net'),null);
+assert.equal(f.valueOf({...payout,transaction_type:'股票股利'},'dividend_net'),null);
+assert(f.matchesRule(payout,rule('dividend_net','eq',310),()=>''));
