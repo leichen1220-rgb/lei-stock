@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),d=require('../scripts/dividend-details.js');
+const row={ticker:'9933',trade_date:'2026-09-08',transaction_type:'現金股息',dividend_gross:320,wire_fee:10};
+const trades=[{ticker:'9933',trade_date:'2026-01-01',transaction_type:'現股',quantity:400},{ticker:'9933',trade_date:'2026-09-08',transaction_type:'股票股利',quantity:8},{ticker:'9933',trade_date:'2026-09-09',transaction_type:'現股',quantity:100}];
+assert.deepEqual(d.details(row,trades),{rate:0.8,shares:400,source:'estimated'});
+assert.equal(d.details(row,[...trades,{ticker:'9933',trade_date:row.trade_date,transaction_type:'現股',quantity:-10}]).rate,null);
+assert.equal(d.details({...row,dividend_per_share:0.85},trades).rate,0.85);
+assert.equal(d.details({...row,dividend_per_share:0},trades).rate,0);
+assert.equal(d.details({...row,dividend_eligible_shares:320},[]).rate,1);
+assert.equal(d.details(row,[]).rate,null);
+assert.equal(d.details({...row,dividend_gross:null},trades).rate,null);
+assert.equal(d.format(0.095), '0.095');assert.equal(d.details({...row,ticker:'006201'},trades).rate,null);
+console.log('PASS: recorded dividend rates, historic entitlement shares, same-day stock dividends, ambiguous trades, fee exclusion, zero and exact codes');

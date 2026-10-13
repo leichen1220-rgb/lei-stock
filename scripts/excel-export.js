@@ -1,7 +1,7 @@
 /* Browser export adapter. Only signed-in ledger data is passed in by the app. */
 (function(root){
  'use strict';
- const HEADERS=['輸入','代號','股票名稱','股數','總股數','交易別','成交價','手續費＆交易稅','付出\n成本','成交/除權息日','股數x\n成交價','匯費','股息(每股)','實領\n股息','支出\n+收入','每股成本(含股息)','入賬\n時間','狀態','收盤價','累計損益','希望價\n損益','當次獲利','總付出\n成本','每股成本(不含股息)','自我研究','交易\n年','交易\n月','篩選用\n總股數','現金股息','已確認入帳','備註','交易序號','交易 ID','報價日期','實際交易費用'];
+ const HEADERS=['輸入','代號','股票名稱','股數','總股數','交易別','成交價','手續費＆交易稅','付出\n成本','成交/除權息日','股數x\n成交價','匯費','股息(每股)','實領\n股息','支出\n+收入','每股成本(含股息)','入賬\n時間','狀態','收盤價','累計損益','希望價\n損益','當次獲利','總付出\n成本','每股成本(不含股息)','自我研究','交易\n年','交易\n月','篩選用\n總股數','現金股息','已確認入帳','備註','交易序號','交易 ID','報價日期','實際交易費用','配息股數（記錄）','每股配息（記錄）'];
  const present=v=>v!==null&&v!==undefined&&v!=='';
  const serialDate=value=>value?Math.floor((Date.parse(value+'T00:00:00Z')-Date.UTC(1899,11,30))/86400000):null;
  function ordered(rows){return rows.map((t,i)=>({t,i})).sort((a,b)=>(Number(a.t.sequence_no)>0?Number(a.t.sequence_no):Infinity)-(Number(b.t.sequence_no)>0?Number(b.t.sequence_no):Infinity)||String(a.t.trade_date).localeCompare(String(b.t.trade_date))||a.i-b.i).map(x=>x.t);}
@@ -26,8 +26,9 @@
    put('H',r,paid===null?null:paid-q*(price??0),'IF(F'+r+'="現股",IF(ISNUMBER(I'+r+'),I'+r+'-K'+r+',""),"")',num);
    put('I',r,paid,null,num);put('J',r,serialDate(t.trade_date),null,day);
    put('K',r,kind==='現股'?q*(price??0):null,'IF(F'+r+'="現股",D'+r+'*G'+r+',"")',num);put('L',r,wire,null,num);
-   put('M',r,kind==='現金股息'&&st.quantity>0&&gross!==null?gross/st.quantity:null,'IF(AND(F'+r+'="現金股息",E'+r+'>0),AC'+r+'/E'+r+',"")',num);
-   put('N',r,netDividend,'IF(F'+r+'="現金股息",IF(E'+r+'>0,M'+r+'*E'+r+',AC'+r+')-IF(L'+r+'="",0,L'+r+'),"")',num);
+   const rate=kind==='現金股息'?(present(t.dividend_per_share)?Number(t.dividend_per_share):gross!==null?(Number(t.dividend_eligible_shares)>0?gross/Number(t.dividend_eligible_shares):st.quantity>0?gross/st.quantity:null):null):null;
+   put('M',r,rate,'IF(F'+r+'="現金股息",IF(ISNUMBER(AK'+r+'),AK'+r+',IF(AJ'+r+'>0,AC'+r+'/AJ'+r+',IF(E'+r+'>0,AC'+r+'/E'+r+',""))),"")','0.######');
+   put('N',r,netDividend,'IF(F'+r+'="現金股息",AC'+r+'-IF(L'+r+'="",0,L'+r+'),"")',num);
    const missing='COUNTIFS($B$2:B'+r+',B'+r+',$F$2:F'+r+',"現股",$I$2:I'+r+',"")>0';
    put('O',r,st.invalid?'待補成本':balance,'IF('+missing+',"待補成本",-SUMIF($B$2:B'+r+',B'+r+',$I$2:I'+r+')+SUMIF($B$2:B'+r+',B'+r+',$N$2:N'+r+'))',num);
    put('P',r,st.quantity>0&&!st.invalid?Math.max(0,-balance/st.quantity):null,'IF(AND(E'+r+'>0,ISNUMBER(O'+r+')),MAX(0,-O'+r+'/E'+r+'),"")',num);
@@ -38,9 +39,9 @@
    put('X',r,st.quantity&&!st.invalid?-st.paid/st.quantity:null,'IF(AND(E'+r+'<>0,ISNUMBER(W'+r+')),W'+r+'/E'+r+',"")',num);
    put('Z',r,Number(t.trade_date.slice(0,4)),'YEAR(J'+r+')','0');put('AA',r,Number(t.trade_date.slice(5,7)),'MONTH(J'+r+')','0');
    put('AB',r,finalQty,'SUMIF($B$2:$B$'+(rows.length+1)+',B'+r+',$D$2:$D$'+(rows.length+1)+')',num);
-   put('AC',r,gross,null,num);put('AD',r,kind==='現金股息'?!!t.payment_confirmed:null);put('AE',r,t.note||'');put('AF',r,t.sequence_no??null,null,'0');put('AG',r,t.id||'',null,'@');put('AH',r,isLast&&quote?serialDate(quote.price_date):null,null,day);put('AI',r,fee,null,num);
+   put('AC',r,gross,null,num);put('AD',r,kind==='現金股息'?!!t.payment_confirmed:null);put('AE',r,t.note||'');put('AF',r,t.sequence_no??null,null,'0');put('AG',r,t.id||'',null,'@');put('AH',r,isLast&&quote?serialDate(quote.price_date):null,null,day);put('AI',r,fee,null,num);put('AJ',r,t.dividend_eligible_shares??null,null,num);put('AK',r,t.dividend_per_share??null,null,'0.######');
   });
-  ws['!ref']='A1:AI'+(rows.length+1);ws['!cols']=[8,9,22,10,11,12,11,14,13,14,14,9,12,13,15,18,14,12,12,15,13,13,16,20,20,9,9,14,14,13,28,11,37,14,16].map(wch=>({wch}));ws['!rows']=[{hpt:32}];ws['!autofilter']={ref:'A1:AI'+(rows.length+1)};
+  ws['!ref']='A1:AK'+(rows.length+1);ws['!cols']=[8,9,22,10,11,12,11,14,13,14,14,9,12,13,15,18,14,12,12,15,13,13,16,20,20,9,9,14,14,13,28,11,37,14,16,16,16].map(wch=>({wch}));ws['!rows']=[{hpt:32}];ws['!autofilter']={ref:'A1:AK'+(rows.length+1)};
   XLSX.utils.book_append_sheet(wb,ws,'股票明細');
   const holdings=[...states].filter(([ticker,st])=>st.quantity>0).sort(([a],[b])=>a.localeCompare(b)).map(([ticker,st])=>{const quote=quotes.get(ticker);return {代號:ticker,股票名稱:nameMap.get(ticker)||'',持有股數:st.quantity,含股息成本:st.invalid?'待補成本':Math.max(0,st.paid-st.dividend),實際淨投入:st.invalid?'待補成本':st.paid-st.dividend,累計淨股息:st.dividend,收盤價:quote?.close_price??'',報價日期:quote?.price_date||'',市值:quote?st.quantity*quote.close_price:'',累計損益:quote&&!st.invalid?st.quantity*quote.close_price-st.paid+st.dividend:''};});
   function append(name,records,widths){const sheet=XLSX.utils.json_to_sheet(records),keys=Object.keys(records[0]||{});records.forEach((record,r)=>keys.forEach((key,c)=>{let column='',n=c+1;while(n){column=String.fromCharCode(65+(n-1)%26)+column;n=Math.floor((n-1)/26);}const cell=sheet[column+(r+2)];if(!cell)return;if(typeof record[key]==='number')cell.z=key==='累計損益'?profit:num;else if(key.endsWith('日期')&&/^\d{4}-\d{2}-\d{2}$/.test(record[key])){cell.v=serialDate(record[key]);cell.t='n';cell.z=day;}else if(['代號','帳號末四碼'].includes(key))cell.z='@';}));sheet['!cols']=widths.map(wch=>({wch}));if(sheet['!ref'])sheet['!autofilter']={ref:sheet['!ref']};XLSX.utils.book_append_sheet(wb,sheet,name);}

@@ -7,8 +7,13 @@ const dividend={id:'div',ticker:'0056',trade_date:'2026-01-03',transaction_type:
 const data={trades:[dividend,sale,buy],tickers:[{ticker:'0056',display_name:'Test ETF'}],banks:[],quotes:[{ticker:'0056',close_price:40,price_date:'2026-01-04'}]};
 let wb=api.buildWorkbook(data,{utils}),s=wb.Sheets['股票明細'];
 assert.equal(s.B2.t,'s');assert.equal(s.B2.v,'0056');assert.equal(s.I2.v,1900);assert.equal(s.H2.v,-100);assert.equal(s.AI2.v,0);
-assert.equal(s.I3.v,-1195);assert.equal(s.E4.v,60);assert.equal(s.O4.v,-605);assert.equal(s.P4.v,605/60);assert.equal(s.N4.v,100);assert.equal(s.AC4.v,100);assert.equal(s.T4.v,1795);assert.equal(s.S4.v,40);assert.ok(s.O4.f.includes('SUMIF'));assert.ok(s.E4.f.includes('SUMIF'));assert.equal(s.Z2.v,2026);assert.equal(s.AA2.v,1);assert.equal(s.J2.t,'n');assert.equal(s.J2.z,'yyyy-mm-dd');assert.equal(s['!autofilter'].ref,'A1:AI4');assert.ok(wb.SheetNames.includes('ETF 保管銀行'));
+assert.equal(s.I3.v,-1195);assert.equal(s.E4.v,60);assert.equal(s.O4.v,-605);assert.equal(s.P4.v,605/60);assert.equal(s.N4.v,100);assert.equal(s.AC4.v,100);assert.equal(s.T4.v,1795);assert.equal(s.S4.v,40);assert.ok(s.O4.f.includes('SUMIF'));assert.ok(s.E4.f.includes('SUMIF'));assert.equal(s.Z2.v,2026);assert.equal(s.AA2.v,1);assert.equal(s.J2.t,'n');assert.equal(s.J2.z,'yyyy-mm-dd');assert.equal(s['!autofilter'].ref,'A1:AK4');assert.ok(wb.SheetNames.includes('ETF 保管銀行'));
 wb=api.buildWorkbook({...data,trades:[buy,{...sale,quantity:-90,price:30,trade_fees:0},dividend]}, {utils});s=wb.Sheets['股票明細'];assert.equal(s.P4.v,0);assert.equal(s.O4.v,900);assert.equal(wb.Sheets['持股總覽'].E2.v,-900);
 wb=api.buildWorkbook({...data,trades:[{...buy,paid_cost:null,trade_fees:null}]},{utils});assert.equal(wb.Sheets['股票明細'].O2.v,'待補成本');
 wb=api.buildWorkbook({...data,trades:[buy,{...sale,quantity:-100,price:25,trade_fees:5}],quotes:[]},{utils});assert.equal(wb.Sheets['股票明細'].T3.v,595);assert.equal(wb.Sheets['股票明細'].T2.v,'');
 console.log('PASS: familiar export preserves refunds, exact codes, dates, net dividends, formulas, recovered costs and missing-cost markers');
+
+const rateWorkbook=api.buildWorkbook({...data,trades:[buy,{...dividend,dividend_gross:320,wire_fee:10,dividend_per_share:0.8,dividend_eligible_shares:400}]}, {utils});
+const rateSheet=rateWorkbook.Sheets['股票明細'];
+assert.equal(rateSheet.M3.v,0.8);assert.equal(rateSheet.N3.v,310);assert.equal(rateSheet.AJ3.v,400);assert.equal(rateSheet.AK3.v,0.8);
+assert(!rateSheet.N3.f.includes('M3'));
