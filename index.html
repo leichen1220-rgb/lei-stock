@@ -69,9 +69,17 @@
 .column-filter-button{background:transparent;border:0;padding:0;font:inherit;color:inherit;text-align:inherit;white-space:nowrap}.column-filter-button.is-filtered{color:#c8b7ff}
 .reminder-group{margin:12px 0;border-top:1px solid #353b50;padding-top:10px}.reminder-group>summary{cursor:pointer;font-size:14px}.reminder-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:10px 0;border-bottom:1px solid #353b50}.reminder-row strong{font-size:14px;overflow-wrap:anywhere}.reminder-row .muted{grid-column:1;font-size:12px;line-height:1.5}.reminder-row button{grid-column:2;grid-row:1/3;align-self:center;padding:7px 10px;font-size:12px}
 .profit-positive{color:#ff7676}.profit-negative{color:#69d49b}
-.sale-details>summary{cursor:pointer;font-size:12px}.sale-details[open]{min-width:560px}.sale-details table{font-size:12px}.sale-details th,.sale-details td{padding:8px 6px}.sale-details .muted{white-space:normal;max-width:650px}
+/* Keep Safari text inflation from changing individual table cells. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+#overview .sale-details,#overview .sale-details>summary,#overview .sale-details .muted,#excelCostBody>tr>td>.muted{font-size:12px;line-height:1.5;font-weight:400}
+#overview .sale-details>summary{cursor:pointer}
+#overview .sale-details[open]{min-width:560px}
+#overview .sale-details table{font-size:12px}
+#overview .sale-details th,#overview .sale-details td{padding:7px 8px;font-size:12px}
+#overview .sale-details .muted{white-space:normal;max-width:360px;margin:8px 0}
+
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.4.1 · 逐筆賣出損益</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.4.2 · 手機字級統一</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
