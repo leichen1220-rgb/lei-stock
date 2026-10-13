@@ -17,3 +17,8 @@ const rateWorkbook=api.buildWorkbook({...data,trades:[buy,{...dividend,dividend_
 const rateSheet=rateWorkbook.Sheets['股票明細'];
 assert.equal(rateSheet.M3.v,0.8);assert.equal(rateSheet.N3.v,310);assert.equal(rateSheet.AJ3.v,400);assert.equal(rateSheet.AK3.v,0.8);
 assert(!rateSheet.N3.f.includes('M3'));
+
+const loan={id:'loan',ticker:'0056',trade_date:'2026-01-04',payment_date:'2026-01-06',transaction_type:'借券收入',dividend_gross:308,wire_fee:0,payment_confirmed:true,note:'出借期間保留'};
+const loanWorkbook=api.buildWorkbook({...data,trades:[buy,dividend,loan]}, {utils}),loanSheet=loanWorkbook.Sheets['股票明細'];
+assert.equal(loanSheet.F4.v,'借券收入');assert.equal(loanSheet.D4,undefined);assert.equal(loanSheet.E4.v,100);assert.equal(loanSheet.M4.v,'');assert.equal(loanSheet.N4.v,308);assert.equal(loanSheet.O4.v,-1492);assert.equal(loanSheet.AE4.v,loan.note);assert.equal(loanSheet.R4.v,'已入帳');assert(loanSheet.N4.f.includes('借券收入'));
+const summary=loanWorkbook.Sheets['持股總覽'];assert.equal(summary.F2.v,100);assert.equal(summary.G2.v,308);assert.equal(summary.K2.v,2508);

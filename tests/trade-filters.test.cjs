@@ -32,3 +32,5 @@ assert.equal(f.valueOf({...payout,wire_fee:0},'dividend_net'),320.46);
 assert.equal(f.valueOf({...payout,wire_fee:null},'dividend_net'),null);
 assert.equal(f.valueOf({...payout,transaction_type:'股票股利'},'dividend_net'),null);
 assert(f.matchesRule(payout,rule('dividend_net','eq',310),()=>''));
+
+assert.equal(f.valueOf({...payout,transaction_type:'借券收入'},'dividend_net'),310);

@@ -2,6 +2,7 @@ const assert=require('node:assert/strict');
 const core=require('../supabase/functions/_shared/portfolio-core.js');
 const trade=(ticker,quantity,transaction_type='現股')=>({ticker,quantity,transaction_type,price:666,note:'private',owner_id:'private'});
 const trades=[trade('2330',100),trade('2330',-5),trade('00981A',0.1),trade('00981A',0.2),trade('006201',10),trade('006201',-10),trade('6201',2),trade('2330',100,'現金股息'),trade('00400A',0.000001)];
+assert.deepEqual(core.quantities([...trades,trade('2330',500,'借券收入')]),core.quantities(trades));
 const names=['2330','00981A','6201','00400A'].map(ticker=>({ticker,display_name:'股票 '+ticker,email:'private'}));
 const out=core.publicRows(core.quantities(trades),names);
 assert.deepEqual(out.find(x=>x.code==='00981A'),{code:'00981A',name:'股票 00981A',shares:0.3});

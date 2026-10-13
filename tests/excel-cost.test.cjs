@@ -20,3 +20,5 @@ st=run([div,sell,buy]);assert.equal(st.cost,913);
 st=run([buy,{...sell,paid_cost:200}]);assert.equal(st.cost,1008);
 assert.ok(html.includes('excelCostBody'));assert.ok(!html.includes("['成本／損益','待核對']"));assert.ok(html.includes('obj.paid_cost=null'));
 console.log('PASS: Excel net outlay, dividends, refund, liquidation, negative cost, missing inputs and edit invalidation');
+
+st=run([buy,{...div,transaction_type:'借券收入',dividend_gross:308,wire_fee:0}]);assert.equal(st.quantity,100);assert.equal(st.cost,1697);
