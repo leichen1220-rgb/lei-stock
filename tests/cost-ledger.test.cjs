@@ -59,3 +59,33 @@ assert.equal(x.state.cost,2883,'Subscription refund is already included in expli
 x=run([{...buy,paid_cost:-1}]);
 assert.equal(x.state.valid,false,'Invalid explicit cost must not fall back to a guessed cost');
 console.log('PASS: 16 cost ledger cases (sale, stock dividend, oversell, missing price, cash dividend, chronological sorting, multiple buys, full liquidation, ticker separation, empty price)');
+
+ // Per-sale audit must preserve the ledger total and retain invalid sales as pending.
+x=run([buy,sell,{...sell,trade_date:'2026-01-03',quantity:-60,price:70,trade_fees:5}]);
+assert.equal(x.state.sales.length,2);
+assert.equal(x.state.sales[0].net,2390);
+assert.equal(x.state.sales[0].cost,2008);
+assert.equal(x.state.sales[0].profit,382);
+assert.equal(x.state.sales[1].cost,3012);
+assert.equal(x.state.sales[1].profit,1183);
+assert.equal(x.state.sales.reduce((sum,s)=>sum+s.profit,0),x.state.realized);
+assert.equal(x.state.quantity,0);
+x=run([buy,{...sell,trade_fees:null},{...sell,trade_date:'2026-01-03'}]);
+assert.equal(x.state.sales.length,2);
+assert.ok(x.state.sales.every(s=>s.profit===null));
+x=run([buy,{...sell,quantity:-101}]);assert.equal(x.state.sales[0].profit,null);
+x=run([buy,{ticker:'2330',trade_date:'2026-01-02',transaction_type:'股票股利',quantity:100}, {...sell,trade_date:'2026-01-03',quantity:-100,price:30,trade_fees:0}]);
+assert.equal(x.state.sales[0].cost,2510);
+assert.equal(x.state.sales[0].profit,490);
+x=run([buy,{...sell,sequence_no:2,quantity:-60,price:70,trade_fees:5},{...sell,sequence_no:1}]);
+assert.equal(x.state.sales[0].quantity,40);assert.equal(x.state.sales[1].quantity,60);
+const frozenRows=Object.freeze([Object.freeze({...buy}),Object.freeze({...sell})]),frozenBefore=JSON.stringify(frozenRows);run(frozenRows);assert.equal(JSON.stringify(frozenRows),frozenBefore);
+const renderSale=new Function('trades','fmt','esc',source+';return saleDetailsHTML')([],String,s=>String(s??'').replace(/</g,'&lt;'));
+const detail=renderSale(run([buy,sell]).state);
+assert.ok(detail.startsWith('<details'));
+assert.ok(!detail.includes('<details open'));
+assert.ok(detail.includes('382'));
+assert.ok(renderSale(run([buy,{...sell,trade_fees:null}]).state).includes('待核對'));
+assert.ok(renderSale(run([buy]).state).includes('無賣出'));
+assert.ok(renderSale({...run([buy,sell]).state,sales:[{...run([buy,sell]).state.sales[0],date:'<script>'}]}).includes('&lt;script>'));
+console.log('PASS: per-sale allocation, full liquidation, stock dividend, same-day ordering, invalid sales, collapsed detail rendering, escaping and immutable records');
