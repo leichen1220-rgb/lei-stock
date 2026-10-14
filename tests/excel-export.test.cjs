@@ -22,3 +22,11 @@ const loan={id:'loan',ticker:'0056',trade_date:'2026-01-04',payment_date:'2026-0
 const loanWorkbook=api.buildWorkbook({...data,trades:[buy,dividend,loan]}, {utils}),loanSheet=loanWorkbook.Sheets['股票明細'];
 assert.equal(loanSheet.F4.v,'借券收入');assert.equal(loanSheet.D4,undefined);assert.equal(loanSheet.E4.v,100);assert.equal(loanSheet.M4.v,'');assert.equal(loanSheet.N4.v,308);assert.equal(loanSheet.O4.v,-1492);assert.equal(loanSheet.AE4.v,loan.note);assert.equal(loanSheet.R4.v,'已入帳');assert(loanSheet.N4.f.includes('借券收入'));
 const summary=loanWorkbook.Sheets['持股總覽'];assert.equal(summary.F2.v,100);assert.equal(summary.G2.v,308);assert.equal(summary.K2.v,2508);
+
+const planned={id:'plan',ticker:'0056',stock_name:'Test ETF',direction:'未指定',quantity:null,target_price:999,source_key:'excel-wait:593:0056'};
+const plannedBook=api.buildWorkbook({...data,tradePlans:[planned]}, {utils});
+assert.equal(plannedBook.Sheets['待交易'].D2.v,999);
+assert.equal(plannedBook.Sheets['待交易'].E2.v,'');
+assert.deepEqual(plannedBook.Sheets['股票明細'],api.buildWorkbook(data,{utils}).Sheets['股票明細']);
+assert.deepEqual(plannedBook.Sheets['持股總覽'],api.buildWorkbook(data,{utils}).Sheets['持股總覽']);
+console.log('PASS: pending sheet exports target and blank quantity without affecting transaction/holding sheets');
