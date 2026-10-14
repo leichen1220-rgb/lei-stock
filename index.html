@@ -271,6 +271,36 @@ async function refreshClosingPrices(){
 }
 $('refreshPrices').onclick=refreshClosingPrices;
 
+function hasFilledWireFee(t){return t.transaction_type==='現金股息'&&t.wire_fee!==null&&t.wire_fee!==undefined&&String(t.wire_fee).trim()!==''&&Number.isFinite(Number(t.wire_fee))&&Number(t.wire_fee)>=0;}
+async function confirmFilledWireFees(account,rows){
+ const ids=rows.filter(t=>hasFilledWireFee(t)&&!t.payment_confirmed).map(t=>t.id),updated=new Map();
+ for(let i=0;i<ids.length;i+=200){
+  if(user?.id!==account)throw Error('登入帳號已變更');
+  const saved=await call('stock_transactions',q=>q.update({payment_confirmed:true,payment_confirmed_at:new Date().toISOString()}).eq('owner_id',account).eq('transaction_type','現金股息').eq('payment_confirmed',false).not('wire_fee','is',null).gte('wire_fee',0).in('id',ids.slice(i,i+200)).select());
+  for(const t of saved||[])updated.set(t.id,t);
+ }
+ return rows.map(t=>updated.get(t.id)||t);
+}
+let lendingReady=false;const isIncome=type=>['現金股息','借券收入'].includes(type);
+async function load(){
+ const account=user?.id;if(!account)return;
+ cloudDataReady=false;backupAvailability();
+ [trades,tickers,banks,prices]=[[],[],[],[]];tradePlans=[];plansReady=false;render();
+ try{
+ let [newTrades,newTickers,newBanks,newPrices]=await Promise.all([
+ fetchAll('stock_transactions',[['trade_date',true],['sequence_no',true],['id',true]]),
+ fetchAll('stock_tickers',[['ticker',true]]),fetchAll('stock_etf_banks'),
+ fetchAll('stock_closing_prices',[['price_date',false],['ticker',true]]),readOfficialPrices()]);
+ if(user?.id!==account)return;
+ newTrades=await confirmFilledWireFees(account,newTrades);
+ if(user?.id!==account)return;
+ [trades,tickers,banks,prices]=[newTrades,newTickers,newBanks,newPrices];
+ const lendingCheck=await client.rpc('stock_lending_ready');if(user?.id!==account)return;lendingReady=!lendingCheck.error&&lendingCheck.data===true;const loanOption=$('tradeform').elements.transaction_type.querySelector('[value="借券收入"]');loanOption.disabled=!lendingReady;loanOption.textContent=lendingReady?'借券收入':'借券收入（需安裝 SQL 09）';
+ await readTradePlans(account);if(user?.id!==account)return;
+ cloudDataReady=true;backupAvailability();
+ render();msg('已同步雲端資料：'+trades.length+' 筆交易');void syncPublicPortfolio();
+ }catch(e){[trades,tickers,banks,prices]=[[],[],[],[]];render();msg('讀取失敗，已清除畫面上的舊資料，請勿使用目前資料製作備份：'+e.message,true)}
+}
 let tradePlans=[],plansReady=false,planBusy=false,editingPlan=null,pendingPlanImport=null;
 async function readTradePlans(account){
  try{const rows=await fetchAll('stock_trade_plans',[['created_at',true],['id',true]]);if(user?.id===account){tradePlans=rows;plansReady=true;}}
@@ -334,36 +364,6 @@ $('planImportButton').onclick=async()=>{
  }catch(e){$('planImportStatus').textContent='請重新同步確認：'+e.message;}finally{planBusy=false;$('planImportFile').disabled=false;renderPlans();}
 };
 
-function hasFilledWireFee(t){return t.transaction_type==='現金股息'&&t.wire_fee!==null&&t.wire_fee!==undefined&&String(t.wire_fee).trim()!==''&&Number.isFinite(Number(t.wire_fee))&&Number(t.wire_fee)>=0;}
-async function confirmFilledWireFees(account,rows){
- const ids=rows.filter(t=>hasFilledWireFee(t)&&!t.payment_confirmed).map(t=>t.id),updated=new Map();
- for(let i=0;i<ids.length;i+=200){
-  if(user?.id!==account)throw Error('登入帳號已變更');
-  const saved=await call('stock_transactions',q=>q.update({payment_confirmed:true,payment_confirmed_at:new Date().toISOString()}).eq('owner_id',account).eq('transaction_type','現金股息').eq('payment_confirmed',false).not('wire_fee','is',null).gte('wire_fee',0).in('id',ids.slice(i,i+200)).select());
-  for(const t of saved||[])updated.set(t.id,t);
- }
- return rows.map(t=>updated.get(t.id)||t);
-}
-let lendingReady=false;const isIncome=type=>['現金股息','借券收入'].includes(type);
-async function load(){
- const account=user?.id;if(!account)return;
- cloudDataReady=false;backupAvailability();
- [trades,tickers,banks,prices]=[[],[],[],[]];tradePlans=[];plansReady=false;render();
- try{
- let [newTrades,newTickers,newBanks,newPrices]=await Promise.all([
- fetchAll('stock_transactions',[['trade_date',true],['sequence_no',true],['id',true]]),
- fetchAll('stock_tickers',[['ticker',true]]),fetchAll('stock_etf_banks'),
- fetchAll('stock_closing_prices',[['price_date',false],['ticker',true]]),readOfficialPrices()]);
- if(user?.id!==account)return;
- newTrades=await confirmFilledWireFees(account,newTrades);
- if(user?.id!==account)return;
- [trades,tickers,banks,prices]=[newTrades,newTickers,newBanks,newPrices];
- const lendingCheck=await client.rpc('stock_lending_ready');if(user?.id!==account)return;lendingReady=!lendingCheck.error&&lendingCheck.data===true;const loanOption=$('tradeform').elements.transaction_type.querySelector('[value="借券收入"]');loanOption.disabled=!lendingReady;loanOption.textContent=lendingReady?'借券收入':'借券收入（需安裝 SQL 09）';
- await readTradePlans(account);if(user?.id!==account)return;
- cloudDataReady=true;backupAvailability();
- render();msg('已同步雲端資料：'+trades.length+' 筆交易');void syncPublicPortfolio();
- }catch(e){[trades,tickers,banks,prices]=[[],[],[],[]];render();msg('讀取失敗，已清除畫面上的舊資料，請勿使用目前資料製作備份：'+e.message,true)}
-}
 async function login(signup){if(!client)return msg('Supabase 函式庫載入失敗，請確認網路',true);try{const email=$('email').value.trim(),password=$('password').value;const {data,error}=signup?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});if(error)throw error;if(data?.session?.user){user=data.session.user;authUI();await load();msg('登入成功，已進入股票帳本');}else if(signup){msg('註冊完成；若需要驗證，請先查看信箱');}else{msg('尚未取得有效登入狀態，請重新登入',true);}}catch(e){msg(e.message,true)}}
 $('signin').onclick=()=>login(false);$('signup').onclick=()=>login(true);$('logout').onclick=()=>client.auth.signOut();
 function updateTradeTickerName(){const code=$('tradeform').elements.ticker.value.trim().toUpperCase();$('tradeTickerName').textContent=code?(nameOf(code)==='—'?'代碼表尚無此代號名稱':nameOf(code)):'';}
