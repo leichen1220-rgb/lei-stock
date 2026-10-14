@@ -21,3 +21,23 @@ assert.throws(()=>a.planWaitingImport({...payload,rows:[plan,plan]},[]));assert.
 const sql=fs.readFileSync(path.join(__dirname,'../sql/10_stock_trade_plans.sql'),'utf8');
 assert.ok(!sql.includes('stock_transactions'));assert.ok(sql.includes('enable row level security'));assert.ok(sql.includes('using(owner_id=auth.uid()) with check(owner_id=auth.uid())'));
 (async()=>{failure={code:'PGRST205'};await a.readTradePlans('a');assert.equal(a.state().plansReady,false);failure={code:'500',message:'network'};await assert.rejects(()=>a.readTradePlans('a'));failure=null;loaded=[plan];await a.readTradePlans('a');assert.equal(a.state().tradePlans.length,1);loaded=[{...plan,target_price:999}];user.id='b';await a.readTradePlans('a');assert.equal(a.state().tradePlans[0].target_price,1000);console.log('PASS: planned prices isolated from positions/costs, exact tickers, latest close, import deduplication, missing SQL, network errors and account isolation');})().catch(e=>{console.error(e);process.exit(1)});
+
+const signalSource=html.slice(html.indexOf('function planPriceSignals('),html.indexOf('function renderPlans(){'));
+const signals=new Function(signalSource+';return planPriceSignals')();
+for(const direction of ['賣出','買進']){
+ const base={direction,close:100,target_price:100,highest:100};
+ assert.deepEqual(signals(base),{target:true,highest:true});
+ const offset=direction==='賣出'?1:-1;
+ assert.deepEqual(signals({...base,close:100+offset}),{target:true,highest:true});
+ assert.deepEqual(signals({...base,close:100-offset}),{target:false,highest:false});
+ assert.deepEqual(signals({...base,target_price:direction==='賣出'?90:110,highest:direction==='賣出'?110:90}),{target:true,highest:false});
+ assert.deepEqual(signals({...base,target_price:direction==='賣出'?110:90,highest:direction==='賣出'?90:110}),{target:false,highest:true});
+}
+for(const close of [null,undefined,'',0,NaN])assert.deepEqual(signals({direction:'買進',close,target_price:100,highest:100}),{target:false,highest:false});
+assert.deepEqual(signals({direction:'未指定',close:100,target_price:100,highest:100}),{target:false,highest:false});
+assert.deepEqual(signals({direction:'賣出',close:100,target_price:null,highest:100}),{target:false,highest:true});
+const priceHTML=new Function('fmt',signalSource+';return planPriceHTML')(String);
+assert.match(priceHTML({direction:'賣出',close:100,target_price:100,highest:100}),/plan-highest-dot/);
+assert.match(priceHTML({direction:'買進',close:100,target_price:90,highest:110}),/plan-highest/);
+assert.equal(priceHTML({direction:'買進',close:null,target_price:100,highest:100}),'—');
+console.log('PASS: inclusive buy/sell thresholds, independent reference prices, combined marker and missing-price handling');
