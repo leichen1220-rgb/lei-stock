@@ -7,7 +7,7 @@ const dividend={id:'div',ticker:'0056',trade_date:'2026-01-03',transaction_type:
 const data={trades:[dividend,sale,buy],tickers:[{ticker:'0056',display_name:'Test ETF'}],banks:[],quotes:[{ticker:'0056',close_price:40,price_date:'2026-01-04'}]};
 let wb=api.buildWorkbook(data,{utils}),s=wb.Sheets['股票明細'];
 assert.equal(s.B2.t,'s');assert.equal(s.B2.v,'0056');assert.equal(s.I2.v,1900);assert.equal(s.H2.v,-100);assert.equal(s.AI2.v,0);
-assert.equal(s.I3.v,-1195);assert.equal(s.E4.v,60);assert.equal(s.O4.v,-605);assert.equal(s.P4.v,605/60);assert.equal(s.N4.v,100);assert.equal(s.AC4.v,100);assert.equal(s.T4.v,1795);assert.equal(s.S4.v,40);assert.ok(s.O4.f.includes('SUMIF'));assert.ok(s.E4.f.includes('SUMIF'));assert.equal(s.Z2.v,2026);assert.equal(s.AA2.v,1);assert.equal(s.J2.t,'n');assert.equal(s.J2.z,'yyyy-mm-dd');assert.equal(s['!autofilter'].ref,'A1:AK4');assert.ok(wb.SheetNames.includes('ETF 保管銀行'));
+assert.equal(s.I3.v,-1195);assert.equal(s.E4.v,60);assert.equal(s.O4.v,-605);assert.equal(s.P4.v,605/60);assert.equal(s.N4.v,100);assert.equal(s.AC4.v,100);assert.equal(s.T4.v,1795);assert.equal(s.S4.v,40);assert.ok(s.O4.f.includes('SUMIF'));assert.ok(s.E4.f.includes('SUMIF'));assert.equal(s.Z2.v,2026);assert.equal(s.AA2.v,1);assert.equal(s.J2.t,'n');assert.equal(s.J2.z,'yyyy-mm-dd');assert.equal(s['!autofilter'].ref,'A1:AM4');assert.ok(wb.SheetNames.includes('ETF 保管銀行'));
 wb=api.buildWorkbook({...data,trades:[buy,{...sale,quantity:-90,price:30,trade_fees:0},dividend]}, {utils});s=wb.Sheets['股票明細'];assert.equal(s.P4.v,0);assert.equal(s.O4.v,900);assert.equal(wb.Sheets['持股總覽'].E2.v,-900);
 wb=api.buildWorkbook({...data,trades:[{...buy,paid_cost:null,trade_fees:null}]},{utils});assert.equal(wb.Sheets['股票明細'].O2.v,'待補成本');
 wb=api.buildWorkbook({...data,trades:[buy,{...sale,quantity:-100,price:25,trade_fees:5}],quotes:[]},{utils});assert.equal(wb.Sheets['股票明細'].T3.v,595);assert.equal(wb.Sheets['股票明細'].T2.v,'');
@@ -30,3 +30,12 @@ assert.equal(plannedBook.Sheets['待交易'].E2.v,'');
 assert.deepEqual(plannedBook.Sheets['股票明細'],api.buildWorkbook(data,{utils}).Sheets['股票明細']);
 assert.deepEqual(plannedBook.Sheets['持股總覽'],api.buildWorkbook(data,{utils}).Sheets['持股總覽']);
 console.log('PASS: pending sheet exports target and blank quantity without affecting transaction/holding sheets');
+
+const actualBook=api.buildWorkbook({...data,trades:[buy,{...sale,sale_net_received:1201},dividend]}, {utils});
+assert.equal(actualBook.Sheets['股票明細'].I3.v,-1201);
+assert.equal(actualBook.Sheets['股票明細'].H3.v,5);
+assert.equal(actualBook.Sheets['股票明細'].AI3.v,5);
+assert.equal(actualBook.Sheets['股票明細'].AL3.v,1201);
+assert.equal(actualBook.Sheets['股票明細'].AM3.v,'實收記錄');
+assert.equal(actualBook.Sheets['股票明細'].O4.v,-599);
+console.log('PASS: Excel preserves actual settlement and original fees separately');

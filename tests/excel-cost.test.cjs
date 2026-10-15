@@ -22,3 +22,17 @@ assert.ok(html.includes('excelCostBody'));assert.ok(!html.includes("['成本／�
 console.log('PASS: Excel net outlay, dividends, refund, liquidation, negative cost, missing inputs and edit invalidation');
 
 st=run([buy,{...div,transaction_type:'借券收入',dividend_gross:308,wire_fee:0}]);assert.equal(st.quantity,100);assert.equal(st.cost,1697);
+
+const actualBuy={...buy,paid_cost:10003,quantity:100,price:100,trade_fees:3};
+const actualSale={...sell,quantity:-40,price:120,trade_fees:10,sale_net_received:4801};
+let actual=run([actualBuy,actualSale]);
+assert.equal(actual.cost,5202);assert.equal(actual.saleReceipts,4801);assert.equal(actual.estimatedTrades,0);
+actual=run([actualBuy,{...actualSale,sale_net_received:0}]);assert.equal(actual.cost,10003);
+actual=run([actualBuy,{...actualSale,sale_net_received:null}]);assert.equal(actual.cost,5213);assert.equal(actual.estimatedTrades,1);
+actual=run([{...actualBuy,trade_fees:null},{...actualSale,trade_fees:null}]);assert.equal(actual.valid,true);assert.equal(actual.cost,5202);
+actual=run([actualBuy,{...div,wire_fee:null,payment_confirmed:false}]);assert.equal(actual.missingIncomeFees,1);assert.equal(actual.pendingDividends,1);
+assert.ok(html.includes('sale_net_received=cashDraft.sale'));assert.ok(html.includes('obj.paid_cost=cashDraft.buy'));
+const frozen=Object.freeze([Object.freeze({...actualBuy}),Object.freeze({...actualSale})]),beforeFrozen=JSON.stringify(frozen);calculate(frozen);assert.equal(JSON.stringify(frozen),beforeFrozen);
+const costResult=new Function('trades',source+';return estimateCostLedger()')([actualBuy,actualSale]).states.get('TEST');
+assert.ok(Math.abs(costResult.cost-6001.8)<0.000001);assert.ok(Math.abs(costResult.realized-799.8)<0.000001);assert.equal(costResult.sales[0].estimated,false);
+console.log('PASS: actual receipts override formulas without double fees, explicit zero, missing amounts/fees, pending-income labels and preserved records');
