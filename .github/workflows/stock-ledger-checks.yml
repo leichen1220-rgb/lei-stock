@@ -21,6 +21,7 @@ jobs:
       - run: node tests/import-staging.test.cjs
       - run: node tests/paid-cost-migration.test.cjs
       - run: node tests/market-prices.test.cjs
+      - run: node tests/market-value-change.test.cjs
       - run: node tests/market-refresh.test.cjs
       - run: node tests/wire-confirmation.test.cjs
       - run: node tests/name-import.test.cjs

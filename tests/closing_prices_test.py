@@ -50,4 +50,15 @@ class ClosingPricesTest(unittest.TestCase):
             self.assertEqual(m.fetch_market('TWSE'), (quotes, m.SOURCES['TWSE'][0]))
         with patch.object(m, 'fetch_source', side_effect=ValueError('Both unavailable')):
             with self.assertRaises(ValueError): m.fetch_market('TWSE')
+    def test_previous_session_survives_repeated_same_day_updates(self):
+        q = lambda day, price: {'ticker': '0056', 'market': 'TWSE', 'price_date': day, 'close_price': price}
+        old = {'quotes': [q('2026-10-15', 30)], 'previous_quotes': [q('2026-10-14', 29)]}
+        current = [q('2026-10-16', 31)]
+        prior = m.build_previous_quotes(old, current)
+        self.assertEqual(prior, old['quotes'])
+        again = {'quotes': current, 'previous_quotes': prior}
+        self.assertEqual(m.build_previous_quotes(again, [q('2026-10-16', 32)]), prior)
+        self.assertEqual(m.build_previous_quotes(again, [q('2026-10-19', 33)]), current)
+        self.assertEqual(m.build_previous_quotes({'quotes': []}, current), [])
+
 if __name__ == '__main__': unittest.main()

@@ -82,8 +82,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .plan-price{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border-radius:5px}.plan-price.plan-target{background:#423457;color:#e8d9ff;font-weight:700}.plan-price.plan-highest{background:#4d4129;color:#ffe2a0;font-weight:700}.plan-highest-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f5cf79;flex-shrink:0}.plan-legend{margin:8px 0;line-height:1.6}.plan-legend>span{margin:2px 5px 2px 0}.plan-legend details{margin-top:5px}.plan-legend p{margin:6px 0;max-width:650px}
 .ticker-detail-link{padding:0!important;border:0;background:transparent;color:#c8b7ff;font:inherit!important;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.ticker-detail-link:hover{color:#e9deff}.ticker-detail-link:focus-visible{outline:2px solid #b49af7;outline-offset:3px}#tickerlist .ticker-lookup-item{display:inline-flex;align-items:center;gap:7px;margin:3px;padding:7px 10px;background:#272d41;border-radius:6px}
 #excelCostBody details>summary,#excelCostBody .muted{font-size:12px;line-height:1.5}
+.mv-change{font-size:12px;font-weight:600;line-height:1.5;margin-top:5px;overflow-wrap:anywhere}.mv-dates{font-size:10px;line-height:1.5;margin-top:2px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.6.0 · 實際收支與成本依據</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.6.1 · 總市值每日變動</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -231,6 +232,7 @@ function decodeMarketFeed(feed){
   seen.add(q.ticker);return {ticker:q.ticker,price_date:q.price_date,close_price:q.close_price,market:q.market};
  });
 }
+let previousMarketQuotes=[];
 function latestPrices(rows){
  const latest=new Map();
  for(const p of rows){
@@ -254,8 +256,10 @@ async function readOfficialPrices(){
  }
  const checkedAt=new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false});
  if(feed){
-  marketQuotes=latestPrices([...marketQuotes,...decodeMarketFeed(feed)]);
-  try{localStorage.setItem('lei-stock-public-closes-v1',JSON.stringify({...feed,quotes:marketQuotes}));}catch(error){}
+  const published=decodeMarketFeed(feed),incomingDate=published.map(q=>q.price_date).sort().at(-1),existingDate=marketQuotes.map(q=>q.price_date).sort().at(-1)||'';
+  if(incomingDate>=existingDate){try{previousMarketQuotes=decodeMarketFeed({schema_version:1,quotes:feed.previous_quotes});}catch(e){previousMarketQuotes=[];}}
+  marketQuotes=latestPrices([...marketQuotes,...published]);
+  try{localStorage.setItem('lei-stock-public-closes-v1',JSON.stringify({...feed,quotes:marketQuotes,previous_quotes:previousMarketQuotes}));}catch(error){}
   const dates=[...new Set(marketQuotes.map(q=>q.price_date))].sort(),latest=dates.at(-1);
   const retained=Object.values(feed.sources||{}).some(v=>v.status==='retained');
   const sourceDates=[['TWSE','證交所'],['TPEX','櫃買']].map(([key,label])=>label+'：'+(feed.sources?.[key]?.price_date||'未提供')).join('；');
@@ -598,6 +602,28 @@ function saleDetailsHTML(state){
  const rows=sales.map(s=>'<tr><td>'+esc(s.date||'未填')+'</td><td class="num">'+fmt(s.quantity)+'</td><td class="num">'+(s.price===null?'—':fmt(s.price))+'</td><td class="num">'+(s.fee===null?'—':fmt(s.fee))+'</td><td class="num">'+(s.net===null?'待核對':fmt(s.net)+(s.estimated?'（推算）':'（實收）'))+'</td><td class="num">'+(s.cost===null?'待核對':fmt(s.cost))+'</td><td class="num">'+(s.profit===null?'待核對':profitDisplay(s.profit))+'</td></tr>').join('');
  return '<details class="sale-details"><summary>賣出明細（'+sales.length+' 筆）</summary><p class="muted">依交易日期與原紀錄順序排列；對應成本使用賣出當時的移動平均成本，賣出實收優先採用券商交割金額；未填則標「推算」，按價格與費用計算。成本採移動平均分攤（可有小數），不含股息或借券收入。'+(pending?'有 '+pending+' 筆成本或費用待核對，暫不顯示該筆損益。':'')+'</p><table><thead><tr><th>賣出日期</th><th class="num">股數</th><th class="num">成交價</th><th class="num">費用與稅</th><th class="num">賣出淨收入</th><th class="num">分攤持股成本</th><th class="num">該筆損益</th></tr></thead><tbody>'+rows+'</tbody></table><p class="muted">'+(pending?'已核對損益小計：':'已實現買賣損益合計：')+profitDisplay(checked.reduce((sum,s)=>sum+s.profit,0))+' 元</p></details>';
 }
+function marketValueComparison(positions,currentQuotes,previousQuotes){
+ if(!positions.length)return {ok:false,reason:'尚無持股可比較'};
+ const valid=q=>q&&Number.isFinite(Number(q.close_price))&&Number(q.close_price)>0;
+ const current=new Map(currentQuotes.map(q=>[q.ticker,q])),previous=new Map(previousQuotes.map(q=>[q.ticker,q]));
+ const dates=new Set(positions.map(p=>current.get(p.ticker)?.price_date).filter(Boolean));
+ if(positions.some(p=>!valid(current.get(p.ticker))||!Number.isFinite(Number(p.quantity))||Number(p.quantity)<=0))return {ok:false,reason:'目前持股報價不足'};
+ if(dates.size!==1)return {ok:false,reason:'目前報價日期未齊，暫不比較'};
+ const date=[...dates][0],priorDates=previousQuotes.map(q=>q.price_date).filter(d=>d<date).sort(),priorDate=priorDates.at(-1);
+ if(!priorDate)return {ok:false,reason:'前一交易日報價尚未齊備'};
+ const matched=positions.filter(p=>valid(previous.get(p.ticker))&&previous.get(p.ticker).price_date===priorDate).length;
+ if(matched!==positions.length)return {ok:false,reason:'前一交易日報價不足（'+matched+'/'+positions.length+' 檔）'};
+ let currentValue=0,previousValue=0;
+ for(const p of positions){currentValue+=Number(p.quantity)*Number(current.get(p.ticker).close_price);previousValue+=Number(p.quantity)*Number(previous.get(p.ticker).close_price);}
+ const difference=currentValue-previousValue;
+ return {ok:true,date,priorDate,currentValue,previousValue,difference,percent:previousValue>0?difference/previousValue*100:null};
+}
+function marketValueChangeHTML(positions,currentQuotes,previousQuotes){
+ const result=marketValueComparison(positions,currentQuotes,previousQuotes);
+ if(!result.ok)return '<div class="mv-change muted">'+esc(result.reason)+'</div>';
+ const delta=Math.abs(result.difference)<0.005?0:result.difference,sign=delta>0?'+':'',cls=delta>0?'profit-positive':delta<0?'profit-negative':'muted',arrow=delta>0?'▲':delta<0?'▼':'—';
+ return '<div class="mv-change '+cls+'" title="以目前相同持股數計算兩日收盤市值，不含買賣資金與配息">'+arrow+' '+(delta===0?'持平':sign+fmt(delta)+' 元'+(result.percent===null?'':'（'+sign+fmt(result.percent)+'%）'))+'</div><div class="mv-dates muted">'+esc(result.date)+' 對比 '+esc(result.priorDate)+' · 同股數</div>';
+}
 function tickerDetailLink(ticker){
  return '<button type="button" class="ticker-detail-link" data-view="'+esc(ticker)+'" title="查看 '+esc(ticker)+' 的交易明細">'+esc(ticker)+'</button>';
 }
@@ -610,7 +636,7 @@ function openTickerDetails(ticker){
  showTradeFilters(true);renderFilterRules();show('trades');renderTrades();
  $('trades').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function renderOverview(){const displayPrices=displayedPrices();$('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;const costAudit=estimateCostLedger();const excelAudit=excelCostLedger();const warnings=[];const balances=new Map();const chronological=orderedTransactions(trades);for(const t of chronological){if(t.transaction_type!=='現股'&&t.transaction_type!=='股票股利')continue;const q=Number(t.quantity||0);const next=(balances.get(t.ticker)||0)+q;balances.set(t.ticker,next);if(next < -0.000001)warnings.push(t.ticker+'：'+t.trade_date+' 後庫存為 '+fmt(next)+' 股');} $('ledgerAudit').innerHTML=warnings.length?'<p class="danger"><strong>交易核對警示（'+warnings.length+' 筆）：</strong> '+warnings.slice(0,8).map(esc).join('；')+(warnings.length>8?'；另有 '+(warnings.length-8)+' 筆':'')+'</p>':'<p class="muted">交易順序庫存檢查：未發現負庫存。</p>';const h=holdings();let total=0,known=0;const rows=h.map(x=>{const p=displayPrices.find(p=>p.ticker===x.ticker),profit=holdingProfitSummary(x,p,costAudit.states.get(x.ticker),excelAudit.states.get(x.ticker));if(p){total+=x.quantity*Number(p.close_price);known++}return '<tr><td>'+tickerDetailLink(x.ticker)+'</td><td>'+esc(nameOf(x.ticker))+'</td><td class="num">'+fmt(x.quantity)+'</td><td class="num">'+fmt(x.dividend)+'</td><td class="num">'+(p?fmt(p.close_price):'—')+'</td><td>'+(p?esc(p.price_date):'—')+'</td><td class="num">'+(p?fmt(x.quantity*p.close_price):'—')+'</td><td class="num">'+(profit.costValid?fmt(profit.cost):'待核對')+'</td><td class="num">'+profitDisplay(profit.unrealized)+'</td><td class="num">'+profitDisplay(profit.rate,true)+'</td><td class="num">'+profitDisplay(profit.total)+'</td><td><button data-view="'+esc(x.ticker)+'">查看明細</button></td></tr>';});$('holdingbody').innerHTML=rows.join('');$('stats').innerHTML=[['持有檔數',h.length+' 檔'],['有報價檔數',known+'/'+h.length],['市值（僅已報價）',known?fmt(total):'—'],['淨投入（含股息／借券收入）',excelAudit.warnings.length?'資料不完整':fmt(h.reduce((sum,x)=>sum+(excelAudit.states.get(x.ticker)?.cost||0),0))],['累計借券淨收入',fmt(trades.filter(t=>t.transaction_type==='借券收入').reduce((sum,t)=>sum+Number(t.dividend_gross||0)-Number(t.wire_fee||0),0))],['累計損益（含已出清）',excelAudit.warnings.length||known!==h.length?'資料不完整':fmt(total-[...excelAudit.states.values()].reduce((sum,x)=>sum+x.cost,0))]].map(x=>'<div class="card"><div class="muted">'+x[0]+'</div><div class="stat">'+x[1]+'</div></div>').join('');
+function renderOverview(){const displayPrices=displayedPrices();$('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;const costAudit=estimateCostLedger();const excelAudit=excelCostLedger();const warnings=[];const balances=new Map();const chronological=orderedTransactions(trades);for(const t of chronological){if(t.transaction_type!=='現股'&&t.transaction_type!=='股票股利')continue;const q=Number(t.quantity||0);const next=(balances.get(t.ticker)||0)+q;balances.set(t.ticker,next);if(next < -0.000001)warnings.push(t.ticker+'：'+t.trade_date+' 後庫存為 '+fmt(next)+' 股');} $('ledgerAudit').innerHTML=warnings.length?'<p class="danger"><strong>交易核對警示（'+warnings.length+' 筆）：</strong> '+warnings.slice(0,8).map(esc).join('；')+(warnings.length>8?'；另有 '+(warnings.length-8)+' 筆':'')+'</p>':'<p class="muted">交易順序庫存檢查：未發現負庫存。</p>';const h=holdings();let total=0,known=0;const rows=h.map(x=>{const p=displayPrices.find(p=>p.ticker===x.ticker),profit=holdingProfitSummary(x,p,costAudit.states.get(x.ticker),excelAudit.states.get(x.ticker));if(p){total+=x.quantity*Number(p.close_price);known++}return '<tr><td>'+tickerDetailLink(x.ticker)+'</td><td>'+esc(nameOf(x.ticker))+'</td><td class="num">'+fmt(x.quantity)+'</td><td class="num">'+fmt(x.dividend)+'</td><td class="num">'+(p?fmt(p.close_price):'—')+'</td><td>'+(p?esc(p.price_date):'—')+'</td><td class="num">'+(p?fmt(x.quantity*p.close_price):'—')+'</td><td class="num">'+(profit.costValid?fmt(profit.cost):'待核對')+'</td><td class="num">'+profitDisplay(profit.unrealized)+'</td><td class="num">'+profitDisplay(profit.rate,true)+'</td><td class="num">'+profitDisplay(profit.total)+'</td><td><button data-view="'+esc(x.ticker)+'">查看明細</button></td></tr>';});$('holdingbody').innerHTML=rows.join('');$('stats').innerHTML=[['持有檔數',h.length+' 檔'],['有報價檔數',known+'/'+h.length],['市值（僅已報價）',known?fmt(total):'—'],['淨投入（含股息／借券收入）',excelAudit.warnings.length?'資料不完整':fmt(h.reduce((sum,x)=>sum+(excelAudit.states.get(x.ticker)?.cost||0),0))],['累計借券淨收入',fmt(trades.filter(t=>t.transaction_type==='借券收入').reduce((sum,t)=>sum+Number(t.dividend_gross||0)-Number(t.wire_fee||0),0))],['累計損益（含已出清）',excelAudit.warnings.length||known!==h.length?'資料不完整':fmt(total-[...excelAudit.states.values()].reduce((sum,x)=>sum+x.cost,0))]].map(x=>'<div class="card"><div class="muted">'+x[0]+'</div><div class="stat">'+x[1]+'</div>'+(x[0]==='市值（僅已報價）'?marketValueChangeHTML(h,displayPrices,previousMarketQuotes):'')+'</div>').join('');
  const cashTotals=[...excelAudit.states.values()].reduce((sum,st)=>({estimated:sum.estimated+st.estimatedTrades,fees:sum.fees+st.missingIncomeFees,pending:sum.pending+st.pendingDividends}),{estimated:0,fees:0,pending:0});
  $('ledgerAudit').innerHTML+='<p class="muted">收支依據：'+cashTotals.estimated+' 筆交易金額推算；'+cashTotals.fees+' 筆匯費未填；'+cashTotals.pending+' 筆收入待入帳。可在交易明細補填券商實付／實收金額。</p>';
  $('excelCostBody').innerHTML=[...excelAudit.states.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([ticker,st])=>{const quote=displayPrices.find(p=>p.ticker===ticker);const market=Math.abs(st.quantity)<0.000001?0:quote?st.quantity*Number(quote.close_price):null;return '<tr><td>'+tickerDetailLink(ticker)+'</td><td class="num">'+fmt(st.quantity)+'</td><td class="num">'+holdingCostDisplay(st)+'</td><td class="num">'+(st.valid&&st.quantity>0?fmt(st.cost/st.quantity):'—')+'</td><td class="num">'+(st.valid&&market!==null?fmt(market-st.cost):'—')+'</td><td>'+cashBasisDisplay(st)+'</td><td>'+saleDetailsHTML(costAudit.states.get(ticker))+'</td></tr>';}).join('');

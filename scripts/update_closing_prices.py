@@ -104,6 +104,22 @@ def merge_market(previous, incoming):
             result[ticker] = quote
     return result
 
+def build_previous_quotes(old, current):
+    """Keep the immediately preceding published session for each market."""
+    candidates = old.get('quotes', []) + old.get('previous_quotes', [])
+    result = []
+    for market in SOURCES:
+        dates = [q['price_date'] for q in current if q['market'] == market]
+        if not dates:
+            continue
+        latest = max(dates)
+        prior = [q for q in candidates if q['market'] == market and q['price_date'] < latest]
+        if not prior:
+            continue
+        date = max(q['price_date'] for q in prior)
+        result.extend(q for q in prior if q['price_date'] == date)
+    return sorted({q['ticker']: q for q in result}.values(), key=lambda q: q['ticker'])
+
 def main():
     old = json.loads(OUTPUT.read_text()) if OUTPUT.exists() else {'quotes': [], 'sources': {}}
     all_quotes = {q['ticker']: q for q in old['quotes']}
@@ -123,10 +139,11 @@ def main():
                 print(market + ': retained previous prices (' + type(error).__name__ + ')')
     if not all_quotes:
         raise RuntimeError('No official prices available; previous file left unchanged')
-    if old.get('quotes') == sorted(all_quotes.values(), key=lambda q: q['ticker']) and old.get('sources') == status:
+    previous = build_previous_quotes(old, list(all_quotes.values()))
+    if old.get('quotes') == sorted(all_quotes.values(), key=lambda q: q['ticker']) and old.get('sources') == status and old.get('previous_quotes') == previous:
         print('No changes in official closing prices')
         return
-    result = {'schema_version': 1, 'updated_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'sources': status, 'quotes': sorted(all_quotes.values(), key=lambda q: q['ticker'])}
+    result = {'schema_version': 1, 'updated_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'sources': status, 'previous_quotes': previous, 'quotes': sorted(all_quotes.values(), key=lambda q: q['ticker'])}
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     temp = OUTPUT.with_suffix('.tmp')
     temp.write_text(json.dumps(result, ensure_ascii=False, separators=(',', ':')) + '\n')
