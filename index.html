@@ -90,8 +90,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 .portfolio-table{table-layout:fixed;min-width:1080px}.portfolio-table>thead>tr>th:first-child,.portfolio-table>.position-body>.position-row>td:first-child{width:152px;min-width:152px;max-width:152px}.portfolio-table>thead>tr>th:nth-child(2),.portfolio-table>.position-body>.position-row>td:nth-child(2){width:76px;min-width:76px}.stock-title{display:flex;align-items:center;justify-content:space-between;gap:6px}.stock-title button{font-size:10px!important;padding:3px 5px!important}
 @media(max-width:600px){header{padding:9px 3%;gap:6px}header>div:first-child{max-width:160px}header>div:first-child strong{font-size:14px}header>div:first-child .muted{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}header #who{display:none}header .actions{gap:5px}header button{padding:6px 8px;font-size:12px}#message{min-height:28px;padding:5px 3%;font-size:11px}main{padding:12px 3%}nav{flex-wrap:nowrap;overflow-x:auto;gap:5px}nav button{flex:0 0 auto;white-space:nowrap;font-size:12px;padding:7px 9px}#overview>.card{padding:12px}#overview>.card>.muted{font-size:11px;line-height:1.6}#stats .card{padding:9px}#stats .stat,#stats .card:last-child .stat{font-size:19px}#stats .muted{font-size:11px}.portfolio-table>thead>tr>th:first-child,.portfolio-table>.position-body>.position-row>td:first-child{width:122px;min-width:122px;max-width:122px}.portfolio-table>thead>tr>th:nth-child(2),.portfolio-table>.position-body>.position-row>td:nth-child(2){width:68px;min-width:68px;left:122px}.calculator-dock{max-height:55vh}}
+/* Overview headings must cover sticky expanded content and pinned body cells. */
+.portfolio-table>thead>tr>th{z-index:5}
+.portfolio-table>thead>tr>th:first-child,.portfolio-table>thead>tr>th:nth-child(2){z-index:6}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.7.0 · 統一總覽與浮動試算</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.7.1 · 修正總覽捲動表頭重疊</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
