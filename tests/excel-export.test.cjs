@@ -39,3 +39,14 @@ assert.equal(actualBook.Sheets['股票明細'].AL3.v,1201);
 assert.equal(actualBook.Sheets['股票明細'].AM3.v,'實收記錄');
 assert.equal(actualBook.Sheets['股票明細'].O4.v,-599);
 console.log('PASS: Excel preserves actual settlement and original fees separately');
+
+const summaryRow={ticker:'0056',quantity:60,average:20,quote:{close_price:40,price_date:'2026-01-04'},market:2400,unrealized:1200,realized:100,income:50,dividend:50,lending:0,pendingIncome:20,total:1350,remainingCost:1200,netInvestment:1050,fifo:{valid:true,highestUnit:22}};
+const unifiedExport=api.buildWorkbook({...data,positionRows:[summaryRow]},{utils});
+assert.equal(unifiedExport.Sheets['持股總覽'].C2.v,60);
+assert.equal(unifiedExport.Sheets['持股總覽'].H2.v,1200);
+assert.equal(unifiedExport.Sheets['持股總覽'].I2.v,100);
+assert.equal(unifiedExport.Sheets['持股總覽'].M2.v,20);
+assert.equal(unifiedExport.Sheets['持股總覽'].N2.v,1350);
+assert.equal(unifiedExport.Sheets['持股總覽'].Q2.v,22);
+assert.deepEqual(unifiedExport.Sheets['股票明細'],api.buildWorkbook(data,{utils}).Sheets['股票明細']);
+console.log('PASS: unified summary exports realized/unrealized, pending income and FIFO without changing the transaction ledger');

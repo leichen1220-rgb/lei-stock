@@ -16,6 +16,7 @@ jobs:
       - run: node --check tests/cost-ledger.test.cjs
       - run: node tests/cost-ledger.test.cjs
       - run: node tests/trade-plans.test.cjs
+      - run: node tests/portfolio-workbench.test.cjs
       - run: node tests/excel-cost.test.cjs
       - run: node tests/import-preflight.test.cjs
       - run: node tests/import-staging.test.cjs
