@@ -94,7 +94,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .portfolio-table>thead>tr>th{z-index:5}
 .portfolio-table>thead>tr>th:first-child,.portfolio-table>thead>tr>th:nth-child(2){z-index:6}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.7.1 · 修正總覽捲動表頭重疊</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.8.0 · 買入預算與零股試算</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -102,12 +102,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <section id="app" class="hidden">
 <button id="calculatorLauncher" type="button" class="calculator-launcher" aria-controls="calculatorDock" aria-expanded="false">試算</button>
 <section id="calculatorDock" class="calculator-dock hidden" role="dialog" aria-modal="false" aria-label="交易試算小工具"><div id="calculatorDrag" class="calculator-dock-head"><strong>交易試算</strong><button id="calculatorClose" type="button" aria-label="收起試算工具">收起 ×</button></div><div class="calculator-dock-body">
-<div class="dock-tabs"><button type="button" data-calc-tab="holding" class="active">持股試算</button><button type="button" data-calc-tab="manual">自由試算</button></div>
+<div class="dock-tabs"><button type="button" data-calc-tab="holding" class="active">持股賣出</button><button type="button" data-calc-tab="manual">自訂賣出</button><button type="button" data-calc-tab="buy">買入</button></div>
 <details class="dock-fees"><summary id="calculatorFeeSummary">費率與最低手續費</summary><div class="grid sim-inputs"><label class="field">手續費原始費率<input id="calcRate" type="number" min="0" step="any" value="0.001425"></label><label class="field">折扣（0.28＝2.8折）<input id="calcDiscount" type="number" min="0" step="any" value="0.28"></label><label class="field">最低手續費（元）<input id="calcMinFee" type="number" min="0" step="any" value="1"></label><label class="field">費稅取整<select id="calcRounding"><option value="ceil">向上取整（較保守）</option><option value="round">四捨五入</option><option value="floor">無條件捨去</option></select></label><label class="field">股票交易稅率<input id="calcTax" type="number" min="0" step="any" value="0.003"></label><label class="field">ETF 交易稅率<input id="calcEtfTax" type="number" min="0" step="any" value="0.001"></label><label class="field">債券 ETF 交易稅率<input id="calcBondTax" type="number" min="0" step="any" value="0"></label><label class="field">股票當沖交易稅率<input id="calcDayTax" type="number" min="0" step="any" value="0.0015"></label></div><p class="muted">請依券商核對折扣、最低手續費及取整方式，並確認標的稅率／當沖資格。未填設定不會當作 0。費率變更會同步到表內試算。<a href="https://www.twse.com.tw/zh/products/securities/etf/overview/rules.html" target="_blank" rel="noopener">ETF 規則</a> · <a href="https://accessibility.twse.com.tw/zh/products/system/trading.html" target="_blank" rel="noopener">價格檔位</a></p></details>
 <div id="holdingCalcPane"><label class="field">股票<select id="workbenchTicker"><option value="">選擇持股</option></select></label><div id="workbenchContext" class="muted"></div><div class="grid sim-inputs"><label class="field">預計賣出股數<input id="workbenchQty" type="number" min="1" step="1"></label><label class="field">預計賣價<input id="workbenchPrice" type="number" min="0.01" step="any"></label><label class="field">標的種類<select id="workbenchKind"><option value="stock">股票</option><option value="etf">ETF</option><option value="bond">債券 ETF</option><option value="day">股票當沖</option></select></label></div><div id="workbenchResult"></div></div>
+<div id="buyCalcPane" class="hidden"><div class="grid sim-inputs"><label class="field">試算方式<select id="buyMode"><option value="budget">預算能買幾股</option><option value="quantity">指定股數算費用</option></select></label><label class="field">預計買價（每股）<input id="buyPrice" type="number" min="0.01" step="any" inputmode="decimal" placeholder="例如 58.75"></label><label id="buyBudgetField" class="field">總預算（含手續費）<input id="buyBudget" type="number" min="0" step="any" inputmode="decimal" placeholder="例如 5000"></label><label id="buyQtyField" class="field hidden">預計買入股數<input id="buyQty" type="number" min="1" step="1" inputmode="numeric" placeholder="例如 30"></label></div><div id="buyResults" aria-live="polite"></div><p class="sim-footnote">以股為單位，零股可從 1 股試算。手續費依上方設定估算，買入不扣賣出交易稅。預算試算包含手續費；實際以券商成交與計費為準，拆成多筆委託時費用可能不同。</p></div>
 <div id="manualCalcPane" class="hidden"><div class="grid sim-inputs"><label class="field">賣價<input id="calcPrice" type="number" min="0.01" step="any" value="72.2"></label><label class="field">股數<input id="calcQty" type="number" min="1" step="1" value="1000"></label><label class="field">本次對應買入總成本<input id="calcCost" type="number" min="0" step="any" value="71428"></label><label class="field">標的種類<select id="calcKind"><option value="stock">股票</option><option value="etf">ETF</option><option value="bond">債券 ETF</option><option value="day">股票當沖</option></select></label></div><div id="calcResults"></div><details><summary>開盤漲跌幅試算</summary><label class="field">開盤參考價<input id="calcOpen" type="number" min="0" step="any" value="249"></label><div id="calcOpenResult" class="muted"></div></details></div>
 
-<p class="sim-footnote">回本價為預估，已向上對齊股票／ETF價格檔位，未套當日漲跌停限制。只試算，不寫入交易。</p></div></section>
+<p id="sellCalculatorNote" class="sim-footnote">回本價為預估，已向上對齊股票／ETF價格檔位，未套當日漲跌停限制。只試算，不寫入交易。</p></div></section>
 <nav><button data-page="trades" class="active">股票明細</button><button data-page="overview">持股總覽</button><button data-page="plans">待交易</button><button data-page="dividends">股息提醒</button><button data-page="other">其他資料</button></nav>
 <section id="trades" class="page"><p class="actions"><button type="button" class="primary" id="newTradeButton" aria-expanded="false" aria-controls="tradeEditor">＋ 新增交易</button></p><div id="tradeEditor" class="card hidden"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div class="grid">
 <label class="field">日期<input name="trade_date" type="date" required></label>
@@ -699,7 +700,7 @@ function renderPortfolioRows(){
 }
 function renderOverview(){
  $('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;
- if(portfolioOwner!==(user?.id||null)){if(portfolioOwner!==null){for(const id of ['calcPrice','calcQty','calcCost'])$(id).value='';renderCalculator();}portfolioOwner=user?.id||null;positionDrafts.clear();positionExpanded.clear();dockTicker='';$('workbenchQty').value='';$('workbenchPrice').value='';$('calculatorDock').classList.add('hidden');$('calculatorLauncher').setAttribute('aria-expanded','false');}
+ if(portfolioOwner!==(user?.id||null)){if(portfolioOwner!==null){for(const id of ['calcPrice','calcQty','calcCost','buyPrice','buyBudget','buyQty'])$(id).value='';renderCalculator();renderBuyCalculator();}portfolioOwner=user?.id||null;positionDrafts.clear();positionExpanded.clear();dockTicker='';$('workbenchQty').value='';$('workbenchPrice').value='';$('calculatorDock').classList.add('hidden');$('calculatorLauncher').setAttribute('aria-expanded','false');}
  const costAudit=estimateCostLedger(),cashAudit=excelCostLedger(),quotes=displayedPrices();
  portfolioRows=LeiWorkbench.buildRows(trades,quotes,costAudit.states,cashAudit.states,tradeCashAmount);
  const quoteDates=[...new Set(quotes.map(q=>q.price_date))].sort();
@@ -1909,7 +1910,9 @@ $('auditStagedBatch').onclick=async()=>{
  finally{button.disabled=false;}
 };
 function setCalculatorTab(tab){
- dockTab=tab;$('holdingCalcPane').classList.toggle('hidden',tab!=='holding');$('manualCalcPane').classList.toggle('hidden',tab!=='manual');
+ dockTab=tab;$('holdingCalcPane').classList.toggle('hidden',tab!=='holding');$('manualCalcPane').classList.toggle('hidden',tab!=='manual');$('buyCalcPane').classList.toggle('hidden',tab!=='buy');
+ $('sellCalculatorNote').classList.toggle('hidden',tab==='buy');
+ if(tab==='buy')renderBuyCalculator();
  document.querySelectorAll('[data-calc-tab]').forEach(b=>b.classList.toggle('active',b.dataset.calcTab===tab));
 }
 function fillDockFromRow(ticker){
@@ -1937,6 +1940,19 @@ function renderWorkbench(){
  $('workbenchContext').textContent='現有 '+fmt(row.quantity)+' 股 · 持股均價 '+(row.average===null?'待核對':fmt(row.average))+' · 最近收盤 '+(row.quote?fmt(row.quote.close_price)+'（'+row.quote.price_date+'）':'未報價');
  $('workbenchResult').innerHTML=simulationHTML(row,$('workbenchQty').value,$('workbenchPrice').value,$('workbenchKind').value);
 }
+function renderBuyCalculator(){
+ const budgetMode=$('buyMode').value==='budget';
+ $('buyBudgetField').classList.toggle('hidden',!budgetMode);$('buyQtyField').classList.toggle('hidden',budgetMode);
+ try{
+  if(!window.LeiWorkbench)throw Error('試算工具尚未載入');
+  const num=id=>$(id).value.trim()===''?NaN:Number($(id).value),price=num('buyPrice'),fees=workbenchFees('stock');
+  const quantity=num('buyQty');
+  if(!budgetMode&&(!Number.isSafeInteger(quantity)||quantity<=0))throw Error('請填寫大於 0 的整數股數');
+  const s=budgetMode?LeiWorkbench.affordablePurchase(price,num('buyBudget'),fees):LeiWorkbench.purchase(price,quantity,fees);
+  const item=(label,value)=>'<div class="sim-outcome"><span>'+label+'</span>'+value+'</div>';
+  $('buyResults').innerHTML='<div class="sim-levels"><div class="sim-level"><small>'+(budgetMode?'預算內最多可買':'預計買入')+'</small><strong>'+fmt(s.quantity)+' 股</strong></div><div class="sim-level"><small>預估總支出（含手續費）</small><strong>'+fmt(s.total)+' 元</strong></div></div><div class="sim-outcomes">'+item('成交金額',fmt(s.gross)+' 元')+item('預估手續費',fmt(s.commission)+' 元')+item('含費每股成本',s.average===null?'—':fmt(s.average)+' 元')+(budgetMode?item('預算餘額',fmt(s.remaining)+' 元'):'')+'</div>'+(s.quantity===0?'<p class="muted">目前預算不足以買入 1 股（含手續費）。</p>':'');
+ }catch(e){$('buyResults').innerHTML='<p class="muted">'+esc(e.message)+'</p>';}
+}
 function renderCalculator(){
  if(!window.LeiWorkbench){$('calcResults').textContent='試算工具尚未載入';return;}
  try{
@@ -1944,7 +1960,7 @@ function renderCalculator(){
   if(!Number.isFinite(cost)||cost<0)throw Error('請填寫本次對應買入成本（含買入費用）');
   const s=LeiWorkbench.proceeds(price,qty,fees),breakeven=LeiWorkbench.breakEven(cost,qty,fees,kind==='day'?'stock':kind);
   const item=(label,value)=>'<div class="sim-outcome"><span>'+label+'</span>'+value+'</div>';
-  $('calcResults').innerHTML='<div class="sim-levels"><div class="sim-level"><small>本次交易回本價（預估）</small><strong>'+fmt(breakeven)+' 元</strong></div></div><div class="sim-outcomes">'+item('預估賣出實收',fmt(s.net))+item('預估損益',profitDisplay(s.net-cost))+item('預估手續費',fmt(s.commission))+item('預估交易稅',fmt(s.tax))+item('預估買入總支出',fmt(s.gross+s.commission))+'</div>';
+  $('calcResults').innerHTML='<div class="sim-levels"><div class="sim-level"><small>本次交易回本價（預估）</small><strong>'+fmt(breakeven)+' 元</strong></div></div><div class="sim-outcomes">'+item('預估賣出實收',fmt(s.net))+item('預估損益',profitDisplay(s.net-cost))+item('預估手續費',fmt(s.commission))+item('預估交易稅',fmt(s.tax))+'</div>';
  }catch(e){$('calcResults').innerHTML='<p class="muted">'+esc(e.message)+'</p>';}
  const open=Number($('calcOpen').value);$('calcOpenResult').textContent=Number.isFinite(open)&&open>0?'＋10%：'+fmt(open*1.1)+' · ＋5%：'+fmt(open*1.05)+' · －5%：'+fmt(open*.95)+' · －10%：'+fmt(open*.9)+'（理論值）':'請輸入開盤參考價';
 }
@@ -1953,10 +1969,11 @@ function refreshSimulations(){
  const rate=Number($('calcRate').value)*Number($('calcDiscount').value)*100;
  $('calculatorFeeSummary').textContent='費率設定 · 手續費 '+(Number.isFinite(rate)?fmt(rate):'—')+'% · 最低 '+($('calcMinFee').value||'未填')+' 元';
  for(const row of portfolioRows){const panel=document.querySelector('[data-position="'+row.ticker+'"] [data-row-sim-result]');if(panel){const d=rowDraft(row);panel.innerHTML=simulationHTML(row,d.quantity,d.price,d.kind);}}
- renderCalculator();if(dockTicker)renderWorkbench();
+ renderCalculator();renderBuyCalculator();if(dockTicker)renderWorkbench();
 }
 try{const saved=JSON.parse(localStorage.getItem('lei-stock-calculator-settings-v1')||'null');if(saved)for(const id of calculatorSettingIds)if(typeof saved[id]==='string')$(id).value=saved[id];}catch(e){}
 for(const id of calculatorSettingIds)$(id).addEventListener('input',()=>{try{localStorage.setItem('lei-stock-calculator-settings-v1',JSON.stringify(Object.fromEntries(calculatorSettingIds.map(k=>[k,$(k).value]))));}catch(e){}refreshSimulations();});
+for(const id of ['buyMode','buyPrice','buyBudget','buyQty'])$(id).addEventListener('input',renderBuyCalculator);
 for(const id of ['calcPrice','calcQty','calcCost','calcOpen','calcKind'])$(id).addEventListener('input',renderCalculator);
 for(const id of ['workbenchQty','workbenchPrice','workbenchKind'])$(id).addEventListener('input',renderWorkbench);
 $('workbenchTicker').onchange=e=>fillDockFromRow(e.target.value);
@@ -2031,3 +2048,4 @@ client.auth.getSession().then(({data,error})=>{
 }).catch(err=>{finishAuthBoot();$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態讀取失敗：'+err.message,true);});
 })();
 </script></body></html>
+

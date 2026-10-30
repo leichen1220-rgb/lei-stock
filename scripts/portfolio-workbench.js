@@ -68,6 +68,24 @@ function proceeds(price,quantity,fees){
  const round=Math[fees.rounding],gross=price*quantity,commission=Math.max(fees.minFee,round(gross*fees.rate*fees.discount)),tax=round(gross*fees.tax);
  return {gross,commission,tax,net:gross-commission-tax};
 }
+function purchase(price,quantity,fees){
+ // Buy estimates use commission only; sell-side tax settings are irrelevant.
+ validateFees({...fees,tax:0});
+ if(!Number.isFinite(price)||price<=0||!Number.isSafeInteger(quantity)||quantity<0)throw Error('買價需大於 0，股數需為非負整數');
+ const gross=price*quantity;
+ if(!Number.isFinite(gross)||gross>Number.MAX_SAFE_INTEGER)throw Error('買入金額超出試算範圍');
+ const commission=quantity===0?0:Math.max(fees.minFee,Math[fees.rounding](gross*fees.rate*fees.discount));
+ return {quantity,gross,commission,tax:0,total:gross+commission,average:quantity?((gross+commission)/quantity):null};
+}
+function affordablePurchase(price,budget,fees){
+ purchase(price,0,fees);
+ if(!Number.isFinite(budget)||budget<0||budget>Number.MAX_SAFE_INTEGER)throw Error('請填寫有效的非負預算');
+ let low=0,high=Math.floor(budget/price);
+ if(!Number.isSafeInteger(high))throw Error('股數超出試算範圍');
+ while(low<high){const mid=low+Math.ceil((high-low)/2);if(purchase(price,mid,fees).total<=budget+1e-7)low=mid;else high=mid-1;}
+ const result=purchase(price,low,fees);
+ return {...result,budget,remaining:Math.max(0,budget-result.total)};
+}
 function breakEven(target,quantity,fees,kind){
  validateFees(fees);if(!Number.isFinite(target)||!Number.isInteger(quantity)||quantity<=0)return null;
  // Both fee rounding errors are less than one dollar; start at a proven lower bound.
@@ -95,6 +113,7 @@ function simulate(row,quantity,price,fees,kind){
   everyLotBreak:highest===null?null:breakEven(highest*quantity+0.01,quantity,fees,kind),
   highestUnit:highest};
 }
-const api={fifoLedger,buildRows,inferKind,tick,ceilPrice,proceeds,breakEven,simulate};
+const api={fifoLedger,buildRows,inferKind,tick,ceilPrice,proceeds,purchase,affordablePurchase,breakEven,simulate};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LeiWorkbench=api;
 })(typeof window==='undefined'?globalThis:window);
+

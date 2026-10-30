@@ -31,3 +31,25 @@ const snapshot=JSON.stringify(trades);api.fifoLedger(Object.freeze(trades.map(t=
 assert.equal(api.inferKind('00679B'),'bond');assert.equal(api.inferKind('006201'),'etf');assert.equal(api.inferKind('6201'),'stock');
 trades=[buy('a','2026-01-01',100,100),sell('2026-01-02',100,110)];l=ledger(trades);row=api.buildRows(trades,[],l.cost.states,l.cash.states,l.amount)[0];assert.equal(row.quantity,0);assert.equal(row.total,1000);assert.equal(row.market,0);assert.equal(row.realized,1000);
 console.log('PASS: FIFO lot depletion, stock dividends, pending/confirmed income, 288 fee/tick threshold scenarios, partial sale reconciliation, liquidation and immutable records');
+
+// Buy estimates include the minimum commission in the budget and never charge sale tax.
+let bought=api.purchase(58.75,30,fees);assert.equal(bought.gross,1762.5);assert.equal(bought.commission,1);assert.equal(bought.total,1763.5);assert.equal(bought.tax,0);
+assert.deepEqual(api.purchase(58.75,30,{...fees,tax:NaN}),bought);
+assert.equal(api.affordablePurchase(100,100,fees).quantity,0);
+assert.equal(api.affordablePurchase(100,101,fees).quantity,1);
+assert.equal(api.affordablePurchase(100,1001,fees).quantity,10);
+assert.equal(api.affordablePurchase(100,1000,fees).quantity,9);
+assert.equal(api.affordablePurchase(100,0,fees).commission,0);
+assert.equal(api.affordablePurchase(100,0,fees).average,null);
+for(const rounding of ['ceil','round','floor'])for(const minFee of [0,1,20])for(const price of [0.01,9.99,58.75,1250])for(const budget of [0,0.5,1,99.99,1000,5000,100000]){
+ const f={...fees,rounding,minFee},r=api.affordablePurchase(price,budget,f);
+ assert.ok(r.total<=budget+1e-7);assert.ok(api.purchase(price,r.quantity+1,f).total>budget-1e-7);
+ assert.ok(Math.abs(r.total+r.remaining-budget)<1e-7);
+}
+assert.equal(api.affordablePurchase(10,100,{...noFees}).quantity,10);
+for(const p of [0,-1,NaN,Infinity])assert.throws(()=>api.purchase(p,1,fees));
+for(const q of [-1,0.5,NaN,Number.MAX_SAFE_INTEGER+1])assert.throws(()=>api.purchase(100,q,fees));
+for(const budget of [-1,NaN,Infinity])assert.throws(()=>api.affordablePurchase(100,budget,fees));
+assert.throws(()=>api.purchase(100,1,{...fees,minFee:NaN}));
+assert.throws(()=>api.purchase(100,1,{...fees,rounding:'unknown'}));
+console.log('PASS: buy commission, tax independence, budget boundaries, zero affordable shares and maximal quantity across 252 scenarios');
