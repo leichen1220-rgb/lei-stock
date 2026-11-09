@@ -95,7 +95,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .portfolio-table>thead>tr>th:first-child,.portfolio-table>thead>tr>th:nth-child(2){z-index:6}
 #corporateForm>.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}#corporateForm[data-pending="true"] [data-ca-actual]{display:none}#corporateForm input[type="checkbox"]{width:auto;align-self:flex-start}#corporatePanel>summary{font-size:14px;cursor:pointer}#corporatePanel .field{font-size:12px}@media(max-width:600px){#corporateForm>.grid{grid-template-columns:1fr}#corporateForm input,#corporateForm select{font-size:16px}}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.9.0 · 股本異動與待確認事件</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.9.1 · 精簡股本異動入口</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -111,7 +111,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <p id="sellCalculatorNote" class="sim-footnote">回本價為預估，已向上對齊股票／ETF價格檔位，未套當日漲跌停限制。只試算，不寫入交易。</p></div></section>
 <nav><button data-page="trades" class="active">股票明細</button><button data-page="overview">持股總覽</button><button data-page="plans">待交易</button><button data-page="dividends">股息提醒</button><button data-page="other">其他資料</button></nav>
-<section id="trades" class="page"><p class="actions"><button type="button" id="corporateToggle">股本異動</button><button type="button" class="primary" id="newTradeButton" aria-expanded="false" aria-controls="tradeEditor">＋ 新增交易</button></p><details id="corporatePanel" class="card"><summary>股本異動 · 增資／減資／分割</summary><p id="corporateStatus" class="muted"></p><p class="muted">先保存待確認，拿到券商實際數字後再編輯確認。只影響生效日以後，不改原始交易。比例僅供試算；退款與畸零股款以實際通知為準。</p><form id="corporateForm"><div class="grid">
+<section id="trades" class="page"><p class="actions"><button type="button" class="primary" id="newTradeButton" aria-expanded="false" aria-controls="tradeEditor">＋ 新增交易</button></p><details id="corporatePanel" class="card"><summary>股本異動 · 增資／減資／分割</summary><p id="corporateStatus" class="muted"></p><p class="muted">先保存待確認，拿到券商實際數字後再編輯確認。只影響生效日以後，不改原始交易。比例僅供試算；退款與畸零股款以實際通知為準。</p><form id="corporateForm"><div class="grid">
 <label class="field">股票代號<input name="ticker" list="tickerList" required placeholder="例如 3714"></label>
 <label class="field">異動類型<select name="kind"><option value="cash_reduction">現金減資</option><option value="loss_reduction">彌補虧損減資</option><option value="split">股票／ETF 分割</option><option value="reverse_split">反分割／併股</option><option value="subscription">現金增資認購</option></select></label>
 <label class="field">狀態<select name="status"><option value="pending">待確認（不套用數字）</option><option value="confirmed">已核對實際數字</option></select></label>
@@ -260,7 +260,6 @@ function corporatePositionHTML(row){
  return '<details class="detail-subsection"><summary>股本異動（'+row.actions.length+' 筆）</summary><p class="muted">持股成本已按生效事件調整；退本金不算股息。股本異動損益（含畸零股折現／費用）：'+fmt(row.otherRealized||0)+' 元；已確認待收退款淨額：'+fmt(row.corporateReceivable||0)+' 元（按應收額納入總損益，非已入帳收入）。</p>'+row.actions.map(a=>'<p class="muted">'+esc(a.effective_date)+' '+esc(LeiCorporateActions.labels[a.kind])+' · '+esc(a.status==='pending'?'待確認':a.effective_date>today()?'未生效':'已生效')+' · '+esc(a.before_quantity??'—')+' → '+esc(a.after_quantity??'—')+' 股</p>').join('')+'</details>';
 }
 function initCorporateActions(){
- $('corporateToggle').onclick=()=>{$('corporatePanel').open=!$('corporatePanel').open;if($('corporatePanel').open)$('corporatePanel').scrollIntoView({block:'start',behavior:'smooth'});};
  $('corporateForm').addEventListener('input',()=>{corporatePreview=null;$('corporateSave').disabled=true;});
  $('corporateForm').elements.kind.onchange=corporateFields;$('corporateForm').elements.status.onchange=corporateFields;
  $('corporateEstimate').onclick=()=>{const f=$('corporateForm').elements,b=Number(f.before_quantity.value),old=Number(f.ratio_old.value),n=Number(f.ratio_new.value);$('corporateEstimateResult').textContent=b>=0&&old>0&&n>0?'比例試算：'+fmt(b*n/old)+' 股（僅參考，不會寫入實際股數）':'先填異動前股數與舊／新比例';};
