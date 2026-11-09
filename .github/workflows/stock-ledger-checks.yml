@@ -18,6 +18,7 @@ jobs:
       - run: node tests/trade-plans.test.cjs
       - run: node tests/portfolio-workbench.test.cjs
       - run: node tests/corporate-actions.test.cjs
+      - run: node tests/amount-math.test.cjs
       - run: node tests/excel-cost.test.cjs
       - run: node tests/import-preflight.test.cjs
       - run: node tests/import-staging.test.cjs
@@ -33,4 +34,5 @@ jobs:
       - run: node tests/public-portfolio.test.cjs
       - run: node tests/dividend-details.test.cjs
       - run: python -m unittest discover -s tests -p '*_test.py'
+
 
