@@ -2,10 +2,12 @@
 (function(root){
 'use strict';
 const present=v=>v!==null&&v!==undefined&&String(v).trim()!=='';
-function fifoLedger(transactions,cashAmount){
+function fifoLedger(transactions,cashAmount,actions=[],asOf){
+ const ca=root.LeiCorporateActions||(typeof require!=='undefined'?require('../supabase/functions/_shared/corporate-actions.js'):null);
  const states=new Map();
- const ordered=transactions.map((t,i)=>({t,i})).sort((a,b)=>String(a.t.trade_date||'').localeCompare(String(b.t.trade_date||''))||(Number(a.t.sequence_no)||0)-(Number(b.t.sequence_no)||0)||a.i-b.i);
+ const ordered=actions.length?ca.timeline(transactions,actions,asOf).map((t,i)=>({t,i})):transactions.map((t,i)=>({t,i})).sort((a,b)=>String(a.t.trade_date||'').localeCompare(String(b.t.trade_date||''))||(Number(a.t.sequence_no)||0)-(Number(b.t.sequence_no)||0)||a.i-b.i);
  for(const {t,i} of ordered){
+  if(t.action){const st=states.get(t.ticker)||{quantity:0,lots:[],valid:true};try{if(!st.valid)throw Error('前序交易待核對');ca.adjustLots(st,t.action);}catch(e){st.valid=false;}states.set(t.ticker,st);continue;}
   if(!['現股','股票股利'].includes(t.transaction_type))continue;
   const st=states.get(t.ticker)||{quantity:0,lots:[],valid:true},q=Number(t.quantity);
   if(!present(t.quantity)||!Number.isFinite(q)||q===0){st.valid=false;states.set(t.ticker,st);continue;}
@@ -26,9 +28,12 @@ function fifoLedger(transactions,cashAmount){
  for(const st of states.values())st.highestUnit=st.valid&&st.lots.length?Math.max(...st.lots.map(l=>l.cost/l.quantity)):null;
  return states;
 }
-function buildRows(transactions,quotes,costStates,cashStates,cashAmount){
- const symbols=new Set(transactions.map(t=>t.ticker)),quantities=new Map(),income=new Map(),quoteMap=new Map(quotes.map(q=>[q.ticker,q])),fifo=fifoLedger(transactions,cashAmount);
- for(const t of transactions){
+function buildRows(transactions,quotes,costStates,cashStates,cashAmount,actions=[],asOf){
+ const ca=root.LeiCorporateActions||(typeof require!=='undefined'?require('../supabase/functions/_shared/corporate-actions.js'):null),blocked=actions.length?ca.blocked(actions,asOf):new Set();
+ if(actions.length)quotes=ca.usableQuotes(quotes,actions,asOf);
+ const symbols=new Set([...transactions.map(t=>t.ticker),...actions.map(a=>a.ticker)]),quantities=new Map(),income=new Map(),quoteMap=new Map(quotes.map(q=>[q.ticker,q])),fifo=fifoLedger(transactions,cashAmount,actions,asOf);
+ for(const t of actions.length?ca.timeline(transactions,actions,asOf):transactions){
+  if(t.action){quantities.set(t.ticker,Number(t.action.after_quantity));continue;}
   if(['現股','股票股利'].includes(t.transaction_type)&&Number.isFinite(Number(t.quantity)))quantities.set(t.ticker,(quantities.get(t.ticker)||0)+Number(t.quantity));
   if(['現金股息','借券收入'].includes(t.transaction_type)){
    const s=income.get(t.ticker)||{dividend:0,lending:0,pending:0,pendingCount:0,valid:true};
@@ -43,13 +48,13 @@ function buildRows(transactions,quotes,costStates,cashStates,cashAmount){
   const quantity=quantities.get(ticker)||0,cost=costStates.get(ticker),cash=cashStates.get(ticker),i=income.get(ticker)||{dividend:0,lending:0,pending:0,pendingCount:0,valid:true};
   const quote=quoteMap.get(ticker),hasPrice=quote&&Number.isFinite(Number(quote.close_price))&&Number(quote.close_price)>0;
   const market=Math.abs(quantity)<1e-6?0:hasPrice?quantity*Number(quote.close_price):null;
-  const costValid=cost?cost.valid&&Math.abs(cost.quantity-quantity)<1e-6:Math.abs(quantity)<1e-6;
-  const cashValid=!!cash?.valid&&i.valid&&Math.abs(cash.quantity-quantity)<1e-6;
+  const costValid=!blocked.has(ticker)&&(cost?cost.valid&&Math.abs(cost.quantity-quantity)<1e-6:Math.abs(quantity)<1e-6);
+  const cashValid=!blocked.has(ticker)&&!!cash?.valid&&i.valid&&Math.abs(cash.quantity-quantity)<1e-6;
   const remainingCost=costValid?(cost?.cost||0):null,netInvestment=cashValid?cash.cost+i.pending:null;
   const row={ticker,quantity,quote:hasPrice?quote:null,market,remainingCost,average:remainingCost!==null&&quantity>0?remainingCost/quantity:null,
    realized:costValid?(cost?.realized||0):null,unrealized:market!==null&&remainingCost!==null?market-remainingCost:null,
    dividend:i.dividend,lending:i.lending,income:i.valid?i.dividend+i.lending:null,pendingIncome:i.pending,pendingCount:i.pendingCount,
-   netInvestment,total:market!==null&&netInvestment!==null?market-netInvestment:null,costValid,cashValid,cashState:cash,costState:cost,fifo:fifo.get(ticker)};
+   corporateReceivable:cash?.corporateReceivable||0,otherRealized:cost?.otherRealized||0,actions:actions.filter(a=>a.ticker===ticker),blocked:blocked.has(ticker),netInvestment,total:market!==null&&netInvestment!==null?market-netInvestment:null,costValid,cashValid,cashState:cash,costState:cost,fifo:fifo.get(ticker)};
   return row;
  });
 }
@@ -99,6 +104,7 @@ function breakEven(target,quantity,fees,kind){
  throw Error('回本價超出試算範圍');
 }
 function simulate(row,quantity,price,fees,kind){
+ if(row.blocked)throw Error('股本異動尚未確認，暫停試算');
  if(!Number.isInteger(quantity)||quantity<=0||quantity>row.quantity+1e-6)throw Error('賣出股數需為正整數，且不得超過現有股數');
  const sale=proceeds(price,quantity,fees),remaining=Math.max(0,row.quantity-quantity);
  const assigned=row.average===null?null:row.average*quantity;
@@ -116,4 +122,5 @@ function simulate(row,quantity,price,fees,kind){
 const api={fifoLedger,buildRows,inferKind,tick,ceilPrice,proceeds,purchase,affordablePurchase,breakEven,simulate};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LeiWorkbench=api;
 })(typeof window==='undefined'?globalThis:window);
+
 

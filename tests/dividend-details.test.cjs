@@ -10,3 +10,12 @@ assert.equal(d.details(row,[]).rate,null);
 assert.equal(d.details({...row,dividend_gross:null},trades).rate,null);
 assert.equal(d.format(0.095), '0.095');assert.equal(d.details({...row,ticker:'006201'},trades).rate,null);
 console.log('PASS: recorded dividend rates, historic entitlement shares, same-day stock dividends, ambiguous trades, fee exclusion, zero and exact codes');
+
+const ca=require('../supabase/functions/_shared/corporate-actions.js');
+const event={id:'split',ticker:'2330',kind:'split',status:'confirmed',effective_date:'2026-02-01',timing:'before',event_order:0,before_quantity:10,after_quantity:20,fractional_quantity:0,principal_cash:0,fractional_cash:0,fees:0};
+const prior=[{ticker:'2330',transaction_type:'現股',quantity:10,trade_date:'2026-01-01'}];
+const dividend={ticker:'2330',transaction_type:'現金股息',trade_date:'2026-03-01',dividend_gross:100};
+assert.equal(d.details(dividend,prior,[event]).rate,5);
+assert.equal(d.details(dividend,prior,[{...event,status:'pending'}]).rate,null);
+assert.equal(d.details({...dividend,trade_date:'2026-02-01'},prior,[event]).rate,null);
+console.log('PASS: post-action dividend entitlement uses adjusted shares, unknown/same-day actions suppress estimates');

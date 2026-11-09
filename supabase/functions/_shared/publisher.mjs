@@ -1,3 +1,4 @@
+import './corporate-actions.js';
 import './portfolio-core.js';
 const REPO='leichen1220-rgb/lei-stock',PATH='portfolio.json';
 const ORIGIN='https://leichen1220-rgb.github.io';
@@ -18,12 +19,12 @@ export function createHandler(env,transport=fetch){
    if(!userResponse.ok)return respond({error:'Login expired'},401);
    const user=await userResponse.json();if(user.id!==owner)return respond({error:'Account denied'},403);
    // No client-supplied holdings, path, owner or repository is ever accepted.
-   if((await request.text()).trim())return respond({error:'Request body must be empty'},400);
+   const body=(await request.text()).trim();if(body&&body!==JSON.stringify({schema_version:2}))return respond({error:'Request body must be empty or the version marker'},400);
    async function rows(table,select){
     const result=[];for(let offset=0;offset<100000;offset+=500){
-     const query=new URLSearchParams({select,owner_id:'eq.'+user.id,order:table==='stock_transactions'?'id.asc':'ticker.asc',limit:'500',offset:String(offset)});
+     const query=new URLSearchParams({select,owner_id:'eq.'+user.id,order:table==='stock_transactions'||table==='stock_corporate_actions'?'id.asc':'ticker.asc',limit:'500',offset:String(offset)});
      const response=await fetcher(url+'/rest/v1/'+table+'?'+query,{headers:dbHeaders});
-     if(!response.ok)throw Error('Private read failed');const batch=await response.json();
+     if(!response.ok){const problem=await response.json().catch(()=>({}));if(table==='stock_corporate_actions'&&['42P01','PGRST205'].includes(problem.code)&&!body)return [];throw Error('Private read failed');}const batch=await response.json();
      if(!Array.isArray(batch))throw Error('Invalid private response');result.push(...batch);if(batch.length<500)return result;
     }throw Error('Incomplete private response');
    }
@@ -34,8 +35,8 @@ export function createHandler(env,transport=fetch){
     const current=await fetcher(endpoint+'?ref=main',{headers:ghHeaders});
     if(!current.ok&&current.status!==404)throw Error('Repository read failed');
     const file=current.ok?await current.json():null;
-    const [trades,names]=await Promise.all([rows('stock_transactions','ticker,transaction_type,quantity'),rows('stock_tickers','ticker,display_name')]);
-    const output=globalThis.LeiPortfolio.publicRows(globalThis.LeiPortfolio.quantities(trades),names);
+    const [trades,names,actions]=await Promise.all([rows('stock_transactions','ticker,transaction_type,quantity,trade_date,sequence_no'),rows('stock_tickers','ticker,display_name'),rows('stock_corporate_actions','id,ticker,kind,status,effective_date,timing,event_order,before_quantity,after_quantity,fractional_quantity,subscribed_quantity,subscription_cost,principal_cash,fractional_cash,fees,cash_received')]);
+    const output=globalThis.LeiPortfolio.publicRows(globalThis.LeiPortfolio.quantities(trades,actions),names);
     const content=JSON.stringify(output,null,2)+'\n';
     const bytes=new TextEncoder().encode(content);let binary='';
     for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
@@ -48,3 +49,4 @@ export function createHandler(env,transport=fetch){
   }catch{return respond({error:'Publication failed; previous public file retained'},502);}
  };
 }
+

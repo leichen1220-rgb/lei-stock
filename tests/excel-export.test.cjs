@@ -50,3 +50,7 @@ assert.equal(unifiedExport.Sheets['持股總覽'].N2.v,1350);
 assert.equal(unifiedExport.Sheets['持股總覽'].Q2.v,22);
 assert.deepEqual(unifiedExport.Sheets['股票明細'],api.buildWorkbook(data,{utils}).Sheets['股票明細']);
 console.log('PASS: unified summary exports realized/unrealized, pending income and FIFO without changing the transaction ledger');
+
+const actionExport=api.buildWorkbook({...data,positionRows:[{...summaryRow,quantity:120,otherRealized:12,corporateReceivable:30}],corporateActions:[{id:'ca',ticker:'0056',kind:'split',status:'pending',effective_date:'2026-11-16',timing:'before',event_order:0,note:'等券商確認'}]},{utils});
+assert.ok(actionExport.SheetNames.includes('股本異動'));assert.equal(actionExport.Sheets['股票明細'].D2.v,100);assert.equal(actionExport.Sheets['股票明細'].E2.v,'股本異動請看持股總覽');assert.equal(actionExport.Sheets['持股總覽'].C2.v,120);assert.equal(actionExport.Sheets['持股總覽'].R2.v,12);assert.equal(actionExport.Sheets['持股總覽'].S2.v,30);assert.equal(actionExport.Sheets['股本異動'].T2.v,'ca');
+console.log('PASS: corporate records export separately, original fills preserved, legacy action-ignorant formulas suppressed');

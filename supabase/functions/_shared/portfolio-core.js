@@ -10,7 +10,18 @@ function decimal(value){
  if(Math.abs(scale)>30)throw Error('Unsupported shares precision');
  if(scale<0){units*=10n**BigInt(-scale);scale=0;}return {units,scale};
 }
-function quantities(transactions){
+function quantities(transactions,actions=[],asOf){
+ if(actions.length){
+  const ca=globalThis.LeiCorporateActions||(typeof require!=='undefined'?require('./corporate-actions.js'):null);
+  if(ca.blocked(actions,asOf).size)throw Error('Pending corporate action; publication stopped');
+  ca.quantities(transactions,actions,asOf); // Replay validates actual before/after inventory and order.
+  const deltas=actions.filter(a=>a.status==='confirmed'&&a.effective_date<=(asOf||ca.day())).map(a=>{
+   const b=decimal(a.before_quantity),n=decimal(a.after_quantity),scale=Math.max(b.scale,n.scale),units=n.units*10n**BigInt(scale-n.scale)-b.units*10n**BigInt(scale-b.scale);
+   const digits=(units<0n?-units:units).toString().padStart(scale+1,'0'),quantity=(units<0n?'-':'')+(scale?digits.slice(0,-scale)+'.'+digits.slice(-scale):digits);
+   return {ticker:a.ticker,transaction_type:'現股',quantity};
+  });transactions=[...transactions,...deltas];
+ }
+
  const sums=new Map();for(const row of transactions){
   if(!['現股','股票股利'].includes(row.transaction_type))continue;
   const code=row.ticker;if(typeof code!=='string'||! /^[0-9A-Za-z]{4,10}$/.test(code))throw Error('Invalid code');
@@ -36,3 +47,4 @@ function publicRows(holdings,names){
 }
 const api={quantities,publicRows};root.LeiPortfolio=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
+

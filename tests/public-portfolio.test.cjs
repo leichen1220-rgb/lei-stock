@@ -24,6 +24,7 @@ assert.throws(()=>core.quantities([trade('2330','9007199254740993')]));
   calls.push({url,options});
   if(url.endsWith('/auth/v1/user'))return Response.json({id:'owner',email:'private'});
   if(url.includes('/rest/v1/stock_transactions'))return Response.json(trades);
+  if(url.includes('/rest/v1/stock_corporate_actions'))return Response.json([]);
   if(url.includes('/rest/v1/stock_tickers'))return Response.json(names);
   if(options.method==='PUT'){written=JSON.parse(options.body);return Response.json({commit:{sha:'new'}});}
   return new Response('',{status:404});
@@ -48,6 +49,7 @@ assert.throws(()=>core.quantities([trade('2330','9007199254740993')]));
  const conflict=createHandler(env,async(url,options={})=>{
   if(url.endsWith('/auth/v1/user'))return Response.json({id:'owner'});
   if(url.includes('/rest/v1/stock_transactions')){privateReads++;return Response.json(trades);}
+  if(url.includes('/rest/v1/stock_corporate_actions'))return Response.json([]);
   if(url.includes('/rest/v1/stock_tickers'))return Response.json(names);
   if(options.method==='PUT'){puts++;return puts===1?new Response('',{status:409}):Response.json({});}
   return new Response('',{status:404});
@@ -56,8 +58,24 @@ assert.throws(()=>core.quantities([trade('2330','9007199254740993')]));
  const unchanged=createHandler(env,async(url,options={})=>{
   if(url.endsWith('/auth/v1/user'))return Response.json({id:'owner'});
   if(url.includes('/rest/v1/stock_transactions'))return Response.json(trades);
+  if(url.includes('/rest/v1/stock_corporate_actions'))return Response.json([]);
   if(url.includes('/rest/v1/stock_tickers'))return Response.json(names);
   assert.notEqual(options.method,'PUT');return Response.json({sha:'old',content:written.content});
  });assert.deepEqual(await (await unchanged(req())).json(),{published:true,changed:false});
+ const split={id:'split',ticker:'2330',kind:'split',status:'confirmed',effective_date:'2000-01-01',timing:'before',event_order:0,before_quantity:95,after_quantity:190,fractional_quantity:0,principal_cash:0,fractional_cash:0,fees:0};
+ let actionPuts=0,actionOutput;
+ const corporateHandler=(actions)=>createHandler(env,async(url,options={})=>{
+  if(url.endsWith('/auth/v1/user'))return Response.json({id:'owner'});
+  if(url.includes('/rest/v1/stock_transactions'))return Response.json(trades);
+  if(url.includes('/rest/v1/stock_corporate_actions'))return Response.json(actions);
+  if(url.includes('/rest/v1/stock_tickers'))return Response.json(names);
+  if(options.method==='PUT'){actionPuts++;actionOutput=JSON.parse(Buffer.from(JSON.parse(options.body).content,'base64').toString());return Response.json({});}
+  return new Response('',{status:404});
+ });
+ assert.equal((await corporateHandler([split])(req(JSON.stringify({schema_version:2})))).status,200);
+ assert.equal(actionOutput.find(r=>r.code==='2330').shares,190);assert.deepEqual(Object.keys(actionOutput[0]),['code','name','shares']);
+ const beforePuts=actionPuts;assert.equal((await corporateHandler([{...split,status:'pending'}])(req(JSON.stringify({schema_version:2})))).status,502);assert.equal(actionPuts,beforePuts);
+ console.log('PASS: publisher replays corporate actions, retains exactly three public fields and refuses overdue pending events');
  console.log('PASS: strict three-field publication, decimals, exact codes, authentication, owner scoping, no private payload, conflict reread and unchanged skip');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
