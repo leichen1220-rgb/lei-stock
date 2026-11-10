@@ -97,8 +97,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .new-entry{position:relative;display:inline-block;margin-bottom:12px}#newEntryMenu{position:absolute;top:calc(100% + 5px);left:0;z-index:15;min-width:210px;padding:7px;border:1px solid #555d78;border-radius:10px;background:#1b2030;box-shadow:0 8px 25px #0006}#newEntryMenu button{display:block;width:100%;text-align:left;margin:3px 0}#corporateAdvanced,#corporateForm>details{margin:12px 0}#corporateAdvanced .grid{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}input[data-money-auto="true"]{border-color:#b8a0ed;background:#28243c}#amountTools{margin:12px 0;font-size:12px}#amountTools select{font-size:12px;padding:5px}#corporateForm>.grid{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:600px){#corporateForm>.grid,#corporateAdvanced .grid{grid-template-columns:1fr}#tradeform input,#tradeform select{font-size:16px}}
 #newTradeButton{padding:10px 16px}@media(max-width:600px){#newTradeButton{font-size:12px;padding:7px 9px}}
 #stats .mv-notes{font-size:11px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}#stats .mv-notes>summary{font-size:11px;cursor:pointer}#stats .mv-notes>div{margin:4px 0}
+.new-entry-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.new-entry-row .new-entry{margin-bottom:0}#corporateRecordLink{padding:3px 0;font-size:12px;background:none;border:0;color:#bba9ff;text-decoration:underline;text-align:left}.corporate-record{padding:12px 0;border-top:1px solid #353b50;line-height:1.7;font-size:13px;overflow-wrap:anywhere}.corporate-record-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.corporate-record .actions{margin-top:8px}.corporate-record .actions button{font-size:12px;padding:6px 10px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.0 · 逐檔市值比較與舊報價估值</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.1 · 股本異動紀錄入口</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -114,7 +115,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <p id="sellCalculatorNote" class="sim-footnote">回本價為預估，已向上對齊股票／ETF價格檔位，未套當日漲跌停限制。只試算，不寫入交易。</p></div></section>
 <nav><button data-page="trades" class="active">股票明細</button><button data-page="overview">持股總覽</button><button data-page="plans">待交易</button><button data-page="dividends">股息提醒</button><button data-page="other">其他資料</button></nav>
-<section id="trades" class="page"><div class="new-entry"><button type="button" class="primary" id="newTradeButton" aria-expanded="false" aria-controls="newEntryMenu">＋ 新增 ▾</button><div id="newEntryMenu" class="hidden"><button type="button" id="startTrade">交易紀錄</button><button type="button" id="startCorporate">股本異動／查看紀錄</button></div></div><details id="corporatePanel" class="card hidden"><summary>股本異動 · 增資／減資／分割</summary><p id="corporateStatus" class="muted"></p><p class="muted">先保存待確認，拿到券商實際數字後再編輯確認。只影響生效日以後，不改原始交易。比例僅供試算；退款與畸零股款以實際通知為準。</p><form id="corporateForm"><div class="grid">
+<section id="trades" class="page"><div class="new-entry-row"><div class="new-entry"><button type="button" class="primary" id="newTradeButton" aria-expanded="false" aria-controls="newEntryMenu">＋ 新增 ▾</button><div id="newEntryMenu" class="hidden"><button type="button" id="startTrade">交易紀錄</button><button type="button" id="startCorporate">股本異動／查看紀錄</button></div></div><button type="button" id="corporateRecordLink" class="hidden" aria-controls="corporatePanel" aria-expanded="false"></button></div><details id="corporatePanel" class="card hidden"><summary>股本異動 · 增資／減資／分割</summary><p id="corporateStatus" class="muted"></p><p class="muted">先保存待確認，拿到券商實際數字後再編輯確認。只影響生效日以後，不改原始交易。比例僅供試算；退款與畸零股款以實際通知為準。</p><form id="corporateForm"><div class="grid">
 <label class="field">股票代號<input name="ticker" list="tickerList" required placeholder="例如 3714"></label>
 <label class="field">異動類型<select name="kind"><option value="cash_reduction">現金減資</option><option value="loss_reduction">彌補虧損減資</option><option value="split">股票／ETF 分割</option><option value="reverse_split">反分割／併股</option><option value="subscription">現金增資認購</option></select></label>
 <label class="field">狀態<select name="status"><option value="pending">待確認（不套用數字）</option><option value="confirmed">已核對實際數字</option></select></label>
@@ -133,7 +134,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <label class="field">備註<input name="note" placeholder="例如：富采減資，待券商確認"></label></div>
 <p id="corporateInventoryHint" class="muted" aria-live="polite"></p><p id="corporateActualHint" class="muted"></p><details id="corporateAdvanced"><summary>其他細節（畸零股、費用、入帳與同日順序）</summary><p class="muted">畸零股與費用預設為 0；有則填入。異動前庫存由帳本帶入，同日有買賣時請核對順序。</p><div class="grid"><label class="field">異動前實際股數<input name="before_quantity" readonly type="number" min="0" step="any" inputmode="decimal"></label><label class="field">與同日交易的順序<select name="timing"><option value="before">在同日所有買賣之前</option><option value="after">在同日所有買賣之後</option></select></label><label class="field">同日異動順序（從 0 起）<input name="event_order" type="number" min="0" step="1" value="0" required></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>畸零股數（不足 1 股，無則 0）<input name="fractional_quantity" type="number" min="0" max="0.999999999999" step="any" value="0" inputmode="decimal"></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>畸零股折現總額（扣費前，無則 0）<input name="fractional_cash" value="0" type="number" min="0" step="any" inputmode="decimal"></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>實際扣費（無則 0）<input name="fees" value="0" type="number" min="0" step="any" inputmode="decimal"></label><label class="field" data-ca-actual>現金入／扣帳日<input name="payment_date" type="date"></label><label class="field" data-ca-actual><span>已核對現金入／扣帳</span><input name="cash_received" type="checkbox"></label></div></details><details><summary>比例參考試算（不會填入正式數字）</summary><div class="grid"><label class="field">舊股數比例<input name="ratio_old" type="number" min="0" step="any" placeholder="例如 1"></label><label class="field">新股數比例<input name="ratio_new" type="number" min="0" step="any" placeholder="例如 2"></label></div><button id="corporateEstimate" type="button">試算股數</button><span id="corporateEstimateResult" class="muted"></span></details>
 <p class="actions"><button id="corporatePreviewButton" type="button">核對異動前後</button><button id="corporateSave" type="submit" disabled>儲存異動</button><button id="corporateCancel" type="button">清空／取消編輯</button></p><p id="corporatePreview" class="muted" role="status"></p></form>
-<div id="corporateHistory" class="scroll"><table><thead><tr><th>生效日</th><th>代號</th><th>異動</th><th>狀態</th><th>股數前 → 後</th><th>金額</th><th>入帳</th><th>備註</th><th>操作</th></tr></thead><tbody id="corporateList"></tbody></table></div></details>
+<div id="corporateHistory"><div id="corporateList"></div></div></details>
 <div id="tradeEditor" class="card hidden"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div class="grid">
 <label class="field">日期<input name="trade_date" type="date" required></label>
 <label class="field">股票代號<input name="ticker" required maxlength="16" placeholder="0056"><span id="tradeTickerName" class="muted" aria-live="polite"></span></label>
@@ -217,7 +218,7 @@ function corporateFormData(){
  return a;
 }
 function resetCorporateForm(){
- corporateEditing=null;corporatePreview=null;if(!$('corporateForm'))return;$('corporateForm').reset();$('corporatePanel').classList.add('hidden');$('corporatePanel').open=false;$('corporateAdvanced').open=false;$('corporateInventoryHint').textContent='';$('corporateForm').elements.effective_date.value=today();$('corporatePreview').textContent='待確認事件不會調整庫存；已到生效日仍待確認時，該股估值與公開同步暫停。';$('corporateSave').disabled=true;corporateFields();
+ corporateEditing=null;corporatePreview=null;if(!$('corporateForm'))return;$('corporateForm').reset();$('corporatePanel').classList.add('hidden');$('corporatePanel').open=false;$('corporateRecordLink').setAttribute('aria-expanded','false');$('corporateForm').classList.remove('hidden');$('corporateAdvanced').open=false;$('corporateInventoryHint').textContent='';$('corporateForm').elements.effective_date.value=today();$('corporatePreview').textContent='待確認事件不會調整庫存；已到生效日仍待確認時，該股估值與公開同步暫停。';$('corporateSave').disabled=true;corporateFields();
 }
 function corporateFields(){
  const f=$('corporateForm').elements,subscription=f.kind.value==='subscription';$('corporateForm').dataset.pending=String(f.status.value==='pending');
@@ -257,16 +258,28 @@ function previewCorporateAction(){
 }
 function renderCorporateActions(){
  if(!$('corporateStatus'))return;
+ const pending=corporateRecords.filter(a=>a.status==='pending').length;
+ $('corporateRecordLink').classList.toggle('hidden',!corporateRecords.length);
+ $('corporateRecordLink').textContent='股本異動 '+corporateRecords.length+' 筆'+(pending?' · 待確認 '+pending+' 筆':'');
  $('corporateHistory').classList.toggle('hidden',!corporateRecords.length);
  $('corporateStatus').textContent=corporateReady?'共 '+corporateRecords.length+' 筆；原始買賣紀錄不變。':'需先執行 SQL 12，重新整理後即可使用；現有交易不受影響。';
  $('corporatePreviewButton').disabled=!corporateReady||!cloudDataReady||corporateBusy;
- $('corporateList').innerHTML=corporateRecords.length?corporateRecords.slice().sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||Number(a.event_order)-Number(b.event_order)).map(a=>'<tr><td>'+esc(a.effective_date)+'</td><td>'+tickerDetailLink(a.ticker)+'</td><td>'+esc(LeiCorporateActions.labels[a.kind])+'</td><td>'+esc(a.status==='pending'?'待確認':a.effective_date>today()?'已確認／未生效':'已生效')+'</td><td>'+esc(a.before_quantity??'—')+' → '+esc(a.after_quantity??'—')+'</td><td>'+esc(a.kind==='subscription'?'認購實付 '+fmt(a.subscription_cost??0):'退本金 '+fmt(a.principal_cash??0)+'／畸零 '+fmt(a.fractional_cash??0))+'</td><td>'+esc(a.cash_received?'已入帳':'未確認入帳')+'</td><td>'+esc(a.note||'')+'</td><td><button type="button" data-ca-edit="'+esc(a.id)+'">編輯</button> <button type="button" data-ca-delete="'+esc(a.id)+'">刪除</button></td></tr>').join(''):'<tr><td colspan="9" class="muted">尚無股本異動；不會自動新增富采或其他股票事件。</td></tr>';
+ const amount=v=>v===null||v===undefined||v===''?'待確認':fmt(v)+' 元';
+ $('corporateList').innerHTML=corporateRecords.slice().sort((a,b)=>b.effective_date.localeCompare(a.effective_date)||Number(a.event_order)-Number(b.event_order)).map(a=>{
+  const state=a.status==='pending'?'待確認':a.effective_date>today()?'已確認／未生效':'已生效';
+  const money=a.kind==='subscription'?'認購實付：'+amount(a.subscription_cost):'退本金：'+amount(a.principal_cash)+' · 畸零股款：'+amount(a.fractional_cash)+' · 扣費：'+amount(a.fees);
+  return '<article class="corporate-record"><div class="corporate-record-title"><strong>'+tickerDetailLink(a.ticker)+' '+esc(nameOf(a.ticker))+'</strong><span class="muted">'+esc(state)+'</span></div><div>'+esc(LeiCorporateActions.labels[a.kind])+' · 生效日 '+esc(a.effective_date)+'</div><div class="muted">股數 '+esc(a.before_quantity??'待確認')+' → '+esc(a.after_quantity??'待確認')+' · '+esc(a.cash_received?'已核對入／扣帳':'未確認入／扣帳')+'</div><div class="muted">'+esc(money)+'</div>'+(a.note?'<div class="muted">備註：'+esc(a.note)+'</div>':'')+'<div class="actions"><button type="button" data-ca-edit="'+esc(a.id)+'">編輯</button><button type="button" data-ca-delete="'+esc(a.id)+'">刪除</button></div></article>';
+ }).join('');
+}
+function openCorporateHistory(){
+ showTradeEditor(false);$('corporatePanel').classList.remove('hidden');$('corporatePanel').open=true;$('corporateForm').classList.add('hidden');$('corporateRecordLink').setAttribute('aria-expanded','true');$('corporatePanel').scrollIntoView({block:'start',behavior:'smooth'});
 }
 function corporatePositionHTML(row){
  if(!row.actions?.length)return '';
  return '<details class="detail-subsection"><summary>股本異動（'+row.actions.length+' 筆）</summary><p class="muted">持股成本已按生效事件調整；退本金不算股息。股本異動損益（含畸零股折現／費用）：'+fmt(row.otherRealized||0)+' 元；已確認待收退款淨額：'+fmt(row.corporateReceivable||0)+' 元（按應收額納入總損益，非已入帳收入）。</p>'+row.actions.map(a=>'<p class="muted">'+esc(a.effective_date)+' '+esc(LeiCorporateActions.labels[a.kind])+' · '+esc(a.status==='pending'?'待確認':a.effective_date>today()?'未生效':'已生效')+' · '+esc(a.before_quantity??'—')+' → '+esc(a.after_quantity??'—')+' 股</p>').join('')+'</details>';
 }
 function initCorporateActions(){
+ $('corporateRecordLink').onclick=openCorporateHistory;
  $('corporateForm').addEventListener('input',()=>{corporatePreview=null;$('corporateSave').disabled=true;});
  $('corporateForm').elements.kind.onchange=corporateFields;$('corporateForm').elements.status.onchange=corporateFields;
  $('corporateEstimate').onclick=()=>{const f=$('corporateForm').elements,b=Number(f.before_quantity.value),old=Number(f.ratio_old.value),n=Number(f.ratio_new.value);$('corporateEstimateResult').textContent=b>=0&&old>0&&n>0?'比例試算：'+fmt(b*n/old)+' 股（僅參考，不會寫入實際股數）':'先填異動前股數與舊／新比例';};
@@ -280,7 +293,7 @@ function initCorporateActions(){
  $('corporateList').onclick=async e=>{
   const edit=e.target.closest('[data-ca-edit]'),del=e.target.closest('[data-ca-delete]');if(!edit&&!del||corporateBusy||!user)return;
   const a=corporateRecords.find(x=>x.id===(edit?.dataset.caEdit||del?.dataset.caDelete));if(!a)return;
-  if(edit){corporateEditing=a;const f=$('corporateForm').elements;for(const [key,value]of Object.entries(a))if(f[key]&&key!=='cash_received')f[key].value=value??'';f.cash_received.checked=!!a.cash_received;corporateFields();$('corporateForm').scrollIntoView({block:'start'});return;}
+  if(edit){$('corporateForm').classList.remove('hidden');corporateEditing=a;const f=$('corporateForm').elements;for(const [key,value]of Object.entries(a))if(f[key]&&key!=='cash_received')f[key].value=value??'';f.cash_received.checked=!!a.cash_received;corporateFields();$('corporateForm').scrollIntoView({block:'start'});return;}
   if(!confirm('刪除此股本異動？將重新計算該股庫存與成本；原始買賣不變。'))return;
   const owner=user.id;corporateBusy=true;try{await call('stock_corporate_actions',q=>q.delete().eq('owner_id',owner).eq('id',a.id));if(user?.id!==owner)return;await readCorporateActions(owner);resetCorporateForm();render();void syncPublicPortfolio();}catch(e){msg('刪除失敗：'+e.message,true);}finally{corporateBusy=false;renderCorporateActions();}
  };
@@ -531,7 +544,7 @@ function closeNewMenu(){$('newEntryMenu').classList.add('hidden');$('newTradeBut
 function showTradeEditor(open){$('tradeEditor').classList.toggle('hidden',!open);closeNewMenu();if(open){$('corporatePanel').classList.add('hidden');$('corporatePanel').open=false;}}
 $('newTradeButton').onclick=()=>{const open=$('newEntryMenu').classList.toggle('hidden')===false;$('newTradeButton').setAttribute('aria-expanded',String(open));};
 $('startTrade').onclick=()=>{reset();showTradeEditor(true);};
-$('startCorporate').onclick=()=>{resetCorporateForm();showTradeEditor(false);$('corporatePanel').classList.remove('hidden');$('corporatePanel').open=true;fillCorporateInventory();};
+$('startCorporate').onclick=()=>{resetCorporateForm();showTradeEditor(false);$('corporatePanel').classList.remove('hidden');$('corporatePanel').open=true;$('corporateRecordLink').setAttribute('aria-expanded','true');fillCorporateInventory();};
 document.addEventListener('click',e=>{if(!e.target.closest('.new-entry'))closeNewMenu();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNewMenu();});
 function actualCashFields(){
@@ -2272,6 +2285,7 @@ client.auth.getSession().then(({data,error})=>{
 }).catch(err=>{finishAuthBoot();$('authLoading').classList.add('hidden');$('auth').classList.remove('hidden');msg('登入狀態讀取失敗：'+err.message,true);});
 })();
 </script></body></html>
+
 
 
 
