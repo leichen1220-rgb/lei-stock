@@ -99,7 +99,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #stats .mv-notes{font-size:11px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}#stats .mv-notes>summary{font-size:11px;cursor:pointer}#stats .mv-notes>div{margin:4px 0}
 .new-entry-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.new-entry-row .new-entry{margin-bottom:0}#corporateRecordLink{padding:3px 0;font-size:12px;background:none;border:0;color:#bba9ff;text-decoration:underline;text-align:left}.corporate-record{padding:12px 0;border-top:1px solid #353b50;line-height:1.7;font-size:13px;overflow-wrap:anywhere}.corporate-record-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.corporate-record .actions{margin-top:8px}.corporate-record .actions button{font-size:12px;padding:6px 10px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.2 · 待交易依代號排序</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.3 · 待交易報價修正</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -389,7 +389,7 @@ function latestPrices(rows){
  }
  return [...latest.values()];
 }
-function displayedPrices(){const used=new Set(trades.map(t=>t.ticker));return latestPrices([...prices,...marketQuotes.filter(q=>used.has(q.ticker))]);}
+function displayedPrices(extraTickers=[]){const used=new Set([...trades.map(t=>t.ticker),...extraTickers]);return latestPrices([...prices,...marketQuotes.filter(q=>used.has(q.ticker))]);}
 async function readOfficialPrices(){
  let feed=null,warning='',fromCache=false;
  const before=new Map(marketQuotes.map(q=>[q.ticker,q.price_date+'|'+q.close_price]));
@@ -486,7 +486,7 @@ function renderPlans(){
  $('planImportButton').disabled=!enabled||!pendingPlanImport?.rows.length;
  $('planCloudStatus').textContent=!user?'請先登入':!cloudDataReady?'正在同步…':plansReady?'待交易計畫已同步。':'請先在 Supabase 執行 SQL 10，再重新整理，啟用待交易雲端保存。';
  $('planPriceStatus').textContent=marketPriceMessage;
- const query=$('planSearch').value.trim().toUpperCase(),rows=buildPlanRows(tradePlans,trades,displayedPrices()).filter(p=>!query||(p.ticker+' '+(p.stock_name||nameOf(p.ticker))).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'en'));
+ const query=$('planSearch').value.trim().toUpperCase(),rows=buildPlanRows(tradePlans,trades,displayedPrices(tradePlans.map(p=>p.ticker))).filter(p=>!query||(p.ticker+' '+(p.stock_name||nameOf(p.ticker))).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'en'));
  $('planCount').textContent=tradePlans.length+' 筆計畫'+(query?' · 符合 '+rows.length+' 筆':'');
  $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+'</td><td><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
 }
