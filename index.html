@@ -99,7 +99,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #stats .mv-notes{font-size:11px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}#stats .mv-notes>summary{font-size:11px;cursor:pointer}#stats .mv-notes>div{margin:4px 0}
 .new-entry-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.new-entry-row .new-entry{margin-bottom:0}#corporateRecordLink{padding:3px 0;font-size:12px;background:none;border:0;color:#bba9ff;text-decoration:underline;text-align:left}.corporate-record{padding:12px 0;border-top:1px solid #353b50;line-height:1.7;font-size:13px;overflow-wrap:anywhere}.corporate-record-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.corporate-record .actions{margin-top:8px}.corporate-record .actions button{font-size:12px;padding:6px 10px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.4 · 待交易持股提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.12.0 · 登錄成交與持有低價</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -135,7 +135,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <p id="corporateInventoryHint" class="muted" aria-live="polite"></p><p id="corporateActualHint" class="muted"></p><details id="corporateAdvanced"><summary>其他細節（畸零股、費用、入帳與同日順序）</summary><p class="muted">畸零股與費用預設為 0；有則填入。異動前庫存由帳本帶入，同日有買賣時請核對順序。</p><div class="grid"><label class="field">異動前實際股數<input name="before_quantity" readonly type="number" min="0" step="any" inputmode="decimal"></label><label class="field">與同日交易的順序<select name="timing"><option value="before">在同日所有買賣之前</option><option value="after">在同日所有買賣之後</option></select></label><label class="field">同日異動順序（從 0 起）<input name="event_order" type="number" min="0" step="1" value="0" required></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>畸零股數（不足 1 股，無則 0）<input name="fractional_quantity" type="number" min="0" max="0.999999999999" step="any" value="0" inputmode="decimal"></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>畸零股折現總額（扣費前，無則 0）<input name="fractional_cash" value="0" type="number" min="0" step="any" inputmode="decimal"></label><label class="field" data-ca-kinds="cash_reduction,loss_reduction,split,reverse_split" data-ca-actual>實際扣費（無則 0）<input name="fees" value="0" type="number" min="0" step="any" inputmode="decimal"></label><label class="field" data-ca-actual>現金入／扣帳日<input name="payment_date" type="date"></label><label class="field" data-ca-actual><span>已核對現金入／扣帳</span><input name="cash_received" type="checkbox"></label></div></details><details><summary>比例參考試算（不會填入正式數字）</summary><div class="grid"><label class="field">舊股數比例<input name="ratio_old" type="number" min="0" step="any" placeholder="例如 1"></label><label class="field">新股數比例<input name="ratio_new" type="number" min="0" step="any" placeholder="例如 2"></label></div><button id="corporateEstimate" type="button">試算股數</button><span id="corporateEstimateResult" class="muted"></span></details>
 <p class="actions"><button id="corporatePreviewButton" type="button">核對異動前後</button><button id="corporateSave" type="submit" disabled>儲存異動</button><button id="corporateCancel" type="button">清空／取消編輯</button></p><p id="corporatePreview" class="muted" role="status"></p></form>
 <div id="corporateHistory"><div id="corporateList"></div></div></details>
-<div id="tradeEditor" class="card hidden"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div class="grid">
+<div id="tradeEditor" class="card hidden"><h2 id="formtitle">新增交易</h2><form id="tradeform"><div id="planTradeContext" class="hidden"><p id="planTradeReference" class="muted"></p><div class="actions"><label>成交方向 <select id="planTradeDirection"><option value="">請選擇</option><option>買進</option><option>賣出</option></select></label><label><input type="checkbox" id="keepTradePlan" style="width:auto"> 保留這筆待交易</label></div><p class="muted">請填實際成交股數、成交價和費用。未勾選保留時，明細儲存成功才會移除計畫。</p></div><div class="grid">
 <label class="field">日期<input name="trade_date" type="date" required></label>
 <label class="field">股票代號<input name="ticker" required maxlength="16" placeholder="0056"><span id="tradeTickerName" class="muted" aria-live="polite"></span></label>
 <label class="field">交易別<select name="transaction_type"><option>現股</option><option>現金股息</option><option>股票股利</option><option value="借券收入" disabled>借券收入（需安裝 SQL 09）</option></select></label>
@@ -190,7 +190,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <script src="./supabase/functions/_shared/portfolio-core.js?v=1.9.0"></script>
 <script src="./scripts/dividend-details.js?v=1.9.0"></script>
 <script src="./scripts/excel-export.js?v=1.9.0"></script>
-<script src="./scripts/portfolio-workbench.js?v=1.9.0"></script>
+<script src="./scripts/portfolio-workbench.js?v=1.12.0"></script>
 <script src="./scripts/trade-filters.js?v=1.3.0"></script>
 <script src="./scripts/amount-math.js?v=1.10.0"></script>
 <script>
@@ -506,7 +506,7 @@ function renderPlans(){
  $('planPriceStatus').textContent=marketPriceMessage;
  const query=$('planSearch').value.trim().toUpperCase(),rows=buildPlanRows(tradePlans,trades,displayedPrices(tradePlans.map(p=>p.ticker))).filter(p=>!query||(p.ticker+' '+(p.stock_name||nameOf(p.ticker))).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'en'));
  $('planCount').textContent=tradePlans.length+' 筆計畫'+(query?' · 符合 '+rows.length+' 筆':'');
- $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+'</td><td><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
+ $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+'</td><td><button type="button" data-plan-execute="'+esc(p.id)+'"'+(!enabled?' disabled':'')+(planPriceSignals(p).target?' class="primary"':'')+'>登錄成交</button><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
 }
 function resetPlanForm(){editingPlan=null;$('planForm').reset();$('planEditor').open=false;$('planFormTitle').textContent='＋ 新增待交易';updatePlanHoldingHint();}
 function validatePlan(row){
@@ -528,7 +528,8 @@ $('planCancel').onclick=()=>{if(!planBusy)resetPlanForm();};
 $('planRefresh').onclick=async()=>{const button=$('planRefresh');button.disabled=true;try{await readOfficialPrices();renderOverview();renderPlans();}catch(e){msg(e.message,true);}finally{button.disabled=false;}};
 $('planRows').onclick=async e=>{
  const button=e.target.closest('button');if(!button||planBusy||!plansReady||!cloudDataReady||!user)return;
- const id=button.dataset.planEdit||button.dataset.planDelete,p=tradePlans.find(p=>p.id===id),account=user.id;if(!p)return;
+ const id=button.dataset.planExecute||button.dataset.planEdit||button.dataset.planDelete,p=tradePlans.find(p=>p.id===id),account=user.id;if(!p)return;
+ if(button.dataset.planExecute){startPlanTrade(p,account);return;}
  if(button.dataset.planEdit){editingPlan={id,account};for(const k of ['ticker','stock_name','direction','quantity','target_price','note'])$('planForm').elements[k].value=p[k]??'';$('planEditor').open=true;$('planFormTitle').textContent='編輯待交易 · '+p.ticker;updatePlanHoldingHint();$('planEditor').scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(!confirm('刪除 '+p.ticker+' 的這筆待交易計畫？'))return;
  planBusy=true;renderPlans();try{await call('stock_trade_plans',q=>q.delete().eq('owner_id',account).eq('id',id));await readTradePlans(account);if(user?.id===account&&editingPlan?.id===id)resetPlanForm();}catch(e){msg('刪除失敗：'+e.message,true);}finally{planBusy=false;renderPlans();}
@@ -577,20 +578,54 @@ function actualCashFields(){
 }
 $('tradeform').elements.quantity.addEventListener('input',actualCashFields);
 
-function reset(){resetAmountState();showTradeEditor(false);editing=null;HTMLFormElement.prototype.reset.call($('tradeform'));$('tradeform').elements.trade_date.value=today();$('formtitle').textContent='新增交易';fields();}
+let linkedTradePlan=null,tradeSaveBusy=false;
+function clearPlanTrade(){
+ linkedTradePlan=null;$('planTradeContext').classList.add('hidden');
+ const f=$('tradeform').elements;f.ticker.readOnly=false;f.transaction_type.disabled=false;
+}
+function startPlanTrade(p,account){
+ if(tradeSaveBusy)return;
+ reset();linkedTradePlan={id:p.id,ticker:p.ticker,account};
+ const f=$('tradeform').elements;
+ f.ticker.value=p.ticker;f.ticker.readOnly=true;
+ f.transaction_type.value='現股';f.transaction_type.disabled=true;
+ $('planTradeReference').textContent='待交易參考：'+p.ticker+' '+(p.stock_name||nameOf(p.ticker))+'｜目標價 '+fmt(p.target_price)+(p.quantity==null?'':'｜預計 '+fmt(p.quantity)+' 股');
+ $('planTradeDirection').value=['買進','賣出'].includes(p.direction)?p.direction:'';
+ $('planTradeContext').classList.remove('hidden');$('formtitle').textContent='登錄成交';
+ show('trades');showTradeEditor(true);fields();$('tradeEditor').scrollIntoView({block:'start'});
+}
+function applyPlanTradeDirection(){
+ if(!linkedTradePlan)return;
+ const input=$('tradeform').elements.quantity,q=Number(input.value),direction=$('planTradeDirection').value;
+ if(q&&direction)input.value=String(Math.abs(q)*(direction==='賣出'?-1:1));
+}
+$('tradeform').elements.quantity.addEventListener('input',applyPlanTradeDirection,true);
+$('planTradeDirection').onchange=()=>{applyPlanTradeDirection();const quantity=$('tradeform').elements.quantity;actualCashFields();if(quantity.value)updateTradeAmounts(quantity);};
+function reset(){clearPlanTrade();resetAmountState();showTradeEditor(false);editing=null;HTMLFormElement.prototype.reset.call($('tradeform'));$('tradeform').elements.trade_date.value=today();$('formtitle').textContent='新增交易';fields();}
 $('resetTradeButton').onclick=reset;
-$('tradeform').onsubmit=async e=>{e.preventDefault();if(amountTouched&&amountError)return msg(amountError,true);const f=e.target.elements, type=f.transaction_type.value,ticker=f.ticker.value.trim().toUpperCase();const obj={trade_date:f.trade_date.value,ticker,transaction_type:type,quantity:isIncome(type)?null:val(f.quantity.value),price:type==='現股'?val(f.price.value):null,trade_fees:type==='現股'?val(f.trade_fees.value):null,dividend_gross:isIncome(type)?val(f.dividend_gross.value):null,wire_fee:isIncome(type)?val(f.wire_fee.value):null,payment_date:isIncome(type)?(f.payment_date.value||null):null,payment_confirmed:isIncome(type)&&(f.payment_confirmed.value==='true'||f.wire_fee.value.trim()!==''),note:f.note.value.trim()||null};
+$('tradeform').onsubmit=async e=>{e.preventDefault();if(tradeSaveBusy||!user)return;const linked=linkedTradePlan,account=user.id,keepPlan=$('keepTradePlan').checked;
+if(linked&&(linked.account!==account||!$('planTradeDirection').value))return msg(linked.account!==account?'登入帳號已變更，請重新開啟待交易':'請選擇實際成交方向',true);
+if(amountTouched&&amountError)return msg(amountError,true);const f=e.target.elements, type=f.transaction_type.value,ticker=f.ticker.value.trim().toUpperCase();const obj={trade_date:f.trade_date.value,ticker,transaction_type:type,quantity:isIncome(type)?null:val(f.quantity.value),price:type==='現股'?val(f.price.value):null,trade_fees:type==='現股'?val(f.trade_fees.value):null,dividend_gross:isIncome(type)?val(f.dividend_gross.value):null,wire_fee:isIncome(type)?val(f.wire_fee.value):null,payment_date:isIncome(type)?(f.payment_date.value||null):null,payment_confirmed:isIncome(type)&&(f.payment_confirmed.value==='true'||f.wire_fee.value.trim()!==''),note:f.note.value.trim()||null};
 if(dividendColumnsReady()){obj.dividend_per_share=type==='現金股息'?val(f.dividend_per_share.value):null;obj.dividend_eligible_shares=type==='現金股息'?val(f.dividend_eligible_shares.value):null;}
 const cashDraft={buy:type==='現股'&&obj.quantity>0?val(f.paid_cost.value):null,sale:type==='現股'&&obj.quantity<0?val(f.sale_net_received.value):null};
 if([cashDraft.buy,cashDraft.sale].some(v=>v!==null&&!Number.isFinite(v))||cashDraft.buy!==null&&cashDraft.buy<0)return msg('實際金額無效',true);
 if(trades.some(t=>Object.prototype.hasOwnProperty.call(t,'sale_net_received')))obj.sale_net_received=cashDraft.sale;
+if(linked&&(editing||ticker!==linked.ticker||type!=='現股'||(obj.quantity>0?'買進':'賣出')!==$('planTradeDirection').value))return msg('請核對成交代號、方向與股數',true);
 if(!ticker||!obj.trade_date)return msg('日期和代號必填',true);
 if(type==='現股'&&(!obj.quantity||!(obj.price>0)))return msg('現股需填非零股數與正數成交價',true);
 if(type==='股票股利'&&!(obj.quantity>0))return msg('股票股利需填正數股數',true);
 if(type==='現金股息'&&dividendColumnsReady()&&((obj.dividend_per_share!==null&&!(obj.dividend_per_share>=0))||(obj.dividend_eligible_shares!==null&&!(obj.dividend_eligible_shares>0))))return msg('每股配息需為非負數，配息股數需大於 0',true);
 if(isIncome(type)&&(obj.dividend_gross===null||!(obj.dividend_gross>=0)))return msg('收入需填總額',true);if(type==='借券收入'&&!lendingReady)return msg('請先執行 SQL 09，啟用借券收入',true);
-try{if(editing){const old=trades.find(x=>x.id===editing);if(['transaction_type','quantity','price','trade_fees'].some(k=>String(old?.[k]??'')!==String(obj[k]??'')))obj.paid_cost=null;if(trades.some(t=>Object.prototype.hasOwnProperty.call(t,'paid_cost')))obj.paid_cost=cashDraft.buy;obj.payment_confirmed_at=obj.payment_confirmed?(old?.payment_confirmed_at||new Date().toISOString()):null;await call('stock_transactions',q=>q.update(obj).eq('id',editing).select());}else{if(trades.some(t=>Object.prototype.hasOwnProperty.call(t,'paid_cost')))obj.paid_cost=cashDraft.buy;obj.owner_id=user.id;obj.payment_confirmed_at=obj.payment_confirmed?new Date().toISOString():null;await call('stock_transactions',q=>q.insert(obj).select());}reset();await load();}catch(err){msg('儲存失敗：'+err.message,true)}};
-function edit(id){const t=trades.find(x=>x.id===id);if(!t)return;resetAmountState();show('trades');showTradeEditor(true);editing=id;const f=$('tradeform').elements;['trade_date','ticker','transaction_type','quantity','price','trade_fees','dividend_gross','wire_fee','payment_date','note','dividend_per_share','dividend_eligible_shares','paid_cost','sale_net_received'].forEach(k=>f[k].value=t[k]??'');f.payment_confirmed.value=String(t.payment_confirmed);$('formtitle').textContent='編輯交易';fields();loadTradeAmountDisplay();window.scrollTo({top:0,behavior:'smooth'});}
+tradeSaveBusy=true;$('save').disabled=true;
+try{if(editing){const old=trades.find(x=>x.id===editing);if(['transaction_type','quantity','price','trade_fees'].some(k=>String(old?.[k]??'')!==String(obj[k]??'')))obj.paid_cost=null;if(trades.some(t=>Object.prototype.hasOwnProperty.call(t,'paid_cost')))obj.paid_cost=cashDraft.buy;obj.payment_confirmed_at=obj.payment_confirmed?(old?.payment_confirmed_at||new Date().toISOString()):null;await call('stock_transactions',q=>q.update(obj).eq('id',editing).select());}else{if(trades.some(t=>Object.prototype.hasOwnProperty.call(t,'paid_cost')))obj.paid_cost=cashDraft.buy;obj.owner_id=user.id;obj.payment_confirmed_at=obj.payment_confirmed?new Date().toISOString():null;await call('stock_transactions',q=>q.insert(obj).select());}}catch(err){if(user?.id===account)msg('儲存失敗：'+err.message,true);tradeSaveBusy=false;$('save').disabled=false;return;}
+try{
+ let cleanupFailed=false;
+ if(linked&&!keepPlan&&user?.id===account){
+  try{const removed=await call('stock_trade_plans',q=>q.delete().eq('owner_id',account).eq('id',linked.id).eq('ticker',linked.ticker).select('id'));cleanupFailed=!removed?.length;}catch{cleanupFailed=true;}
+ }
+ if(user?.id===account){reset();if(linked&&!keepPlan&&!cleanupFailed&&editingPlan?.id===linked.id)resetPlanForm();await load();if(user?.id===account&&linked)msg(cleanupFailed?'成交已儲存，但未能確認移除待交易；請先核對清單，勿重複登錄。':keepPlan?'成交已儲存，待交易已保留。':'成交已儲存，已移除這筆待交易。',cleanupFailed);}
+}finally{tradeSaveBusy=false;$('save').disabled=false;}};
+function edit(id){const t=trades.find(x=>x.id===id);if(!t||tradeSaveBusy)return;clearPlanTrade();resetAmountState();show('trades');showTradeEditor(true);editing=id;const f=$('tradeform').elements;['trade_date','ticker','transaction_type','quantity','price','trade_fees','dividend_gross','wire_fee','payment_date','note','dividend_per_share','dividend_eligible_shares','paid_cost','sale_net_received'].forEach(k=>f[k].value=t[k]??'');f.payment_confirmed.value=String(t.payment_confirmed);$('formtitle').textContent='編輯交易';fields();loadTradeAmountDisplay();window.scrollTo({top:0,behavior:'smooth'});}
 async function del(id){if(!confirm('確定刪除此筆交易？此操作無法復原。'))return;try{await call('stock_transactions',q=>q.delete().eq('id',id).select());await load();}catch(e){msg(e.message,true)}}
 const tradeFilterState={rules:[],mode:'all',sort:'trade_date',direction:'desc',query:''};let nextFilterId=1;
 function showTradeFilters(open){$('advancedTradeFilters').classList.toggle('hidden',!open);$('tradeFilterToggle').setAttribute('aria-expanded',String(open));}
@@ -884,9 +919,15 @@ function renderPortfolioRows(){
  $('portfolioCount').textContent=rows.length+' 檔';
  $('holdingbody').innerHTML=rows.length?rows.map(r=>{
   const expanded=positionExpanded.has(r.ticker),needReview=!r.cashValid||!r.costValid;
-  const main='<tr class="position-row"><td><div class="stock-title"><strong>'+tickerDetailLink(r.ticker)+'</strong><button type="button" data-position-expand="'+esc(r.ticker)+'" aria-expanded="'+expanded+'" aria-controls="position-'+esc(r.ticker)+'">'+(expanded?'收起':'展開')+'</button></div><span class="stock-name">'+esc(nameOf(r.ticker))+(r.blocked?' · 股本異動待確認，股數暫沿用':needReview?' · 待核對':'')+'</span></td><td class="num">'+fmt(r.quantity)+'</td><td class="num">'+(r.average===null?'—':fmt(r.average))+'</td><td class="num">'+(r.quote?fmt(r.quote.close_price)+'<span class="quote-date">'+esc(r.quote.price_date)+'</span>':'—')+'</td><td class="num">'+profitDisplay(r.unrealized)+'</td><td class="num">'+profitDisplay(r.realized)+'</td><td class="num">'+profitDisplay(r.income)+'</td><td class="num">'+profitDisplay(r.total)+'</td></tr>';
+  const main='<tr class="position-row"><td><div class="stock-title"><strong>'+tickerDetailLink(r.ticker)+'</strong><button type="button" data-position-expand="'+esc(r.ticker)+'" aria-expanded="'+expanded+'" aria-controls="position-'+esc(r.ticker)+'">'+(expanded?'收起':'展開')+'</button></div><span class="stock-name">'+esc(nameOf(r.ticker))+(r.blocked?' · 股本異動待確認，股數暫沿用':needReview?' · 待核對':'')+'</span></td><td class="num">'+fmt(r.quantity)+'</td><td class="num">'+(r.average===null?'—':fmt(r.average))+'</td><td class="num">'+(r.quote?fmt(r.quote.close_price)+'<span class="quote-date">'+esc(r.quote.price_date)+'</span>'+holdingLowBadge(r):'—')+'</td><td class="num">'+profitDisplay(r.unrealized)+'</td><td class="num">'+profitDisplay(r.realized)+'</td><td class="num">'+profitDisplay(r.income)+'</td><td class="num">'+profitDisplay(r.total)+'</td></tr>';
   return main+(expanded?'<tr class="position-detail-row" id="position-'+esc(r.ticker)+'" data-position="'+esc(r.ticker)+'"><td colspan="8">'+positionDetailHTML(r)+'</td></tr>':'');
  }).join(''):'<tr><td colspan="8" class="muted">沒有符合的股票，可切換「全部」或清除搜尋。</td></tr>';
+}
+function holdingLowBadge(r){
+ const pct=LeiWorkbench.belowHoldingBuyPrice(r);
+ if(pct===null)return '';
+ const label=pct<0.1?'不到 0.1%':pct.toLocaleString('zh-TW',{maximumFractionDigits:1})+'%';
+ return '<small class="quote-date" style="color:#95dbab" title="依 FIFO 尚未賣出的批次買價（不含費用；股本異動後以換算價比較）">低於持有最低買價 '+label+'</small>';
 }
 function renderOverview(){
  $('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;
@@ -2297,7 +2338,7 @@ client.auth.onAuthStateChange((event,session)=>{
  if(!initialAuthResolved&&event==='INITIAL_SESSION')initialAuthResolved=true;
  finishAuthBoot();const prev=user?.id;user=session?.user||null;authUI();
  if(user&&user.id!==prev)setTimeout(load,0);
- if(!user){resetBankForm();resetTradeFilters();cloudDataReady=false;backupAvailability();trades=[];tickers=[];banks=[];prices=[];tradePlans=[];plansReady=false;pendingPlanImport=null;corporateRecords=[];corporateReady=false;resetCorporateForm();resetPlanForm();render();}
+ if(!user){resetBankForm();resetTradeFilters();cloudDataReady=false;backupAvailability();trades=[];tickers=[];banks=[];prices=[];tradePlans=[];plansReady=false;pendingPlanImport=null;corporateRecords=[];corporateReady=false;reset();resetCorporateForm();resetPlanForm();render();}
 });
 client.auth.getSession().then(({data,error})=>{
  if(error)msg('登入狀態恢復失敗：'+error.message,true);
