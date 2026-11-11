@@ -2,7 +2,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('n
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 const ledgerCode=html.slice(html.indexOf('function orderedTransactions(items){'),html.indexOf('function renderOverview(){'));
 const calc=rows=>new Function('trades',ledgerCode+';return estimateCostLedger()')(rows);
-const code=html.slice(html.indexOf('let tradePlans=[]'),html.indexOf("$('planSearch').oninput"));
+const code=html.slice(html.indexOf('let tradePlans=[]'),html.indexOf("$('planForm').addEventListener"));
 const user={id:'a'};let failure=null,loaded=[];
 const api=new Function('estimateCostLedger','fetchAll','user',code+';return {buildPlanRows,validatePlan,planWaitingImport,readTradePlans,state:()=>({plansReady,tradePlans})}');
 const buys=[{ticker:'006201',transaction_type:'現股',trade_date:'2026-01-01',quantity:100,price:20,paid_cost:2000,trade_fees:0},{ticker:'006201',transaction_type:'現股',trade_date:'2026-01-02',quantity:100,price:30,paid_cost:3000,trade_fees:0},{ticker:'006201',transaction_type:'現股',trade_date:'2026-01-03',quantity:-50,price:50,trade_fees:0}].map(Object.freeze);
@@ -41,3 +41,17 @@ assert.match(priceHTML({direction:'賣出',close:100,target_price:100,highest:10
 assert.match(priceHTML({direction:'買進',close:100,target_price:90,highest:110}),/plan-highest/);
 assert.equal(priceHTML({direction:'買進',close:null,target_price:100,highest:100}),'—');
 console.log('PASS: inclusive buy/sell thresholds, independent reference prices, combined marker and missing-price handling');
+
+// Holding hints are derived from the ledger, separate from planned quantity.
+const guardSource=html.slice(html.indexOf('function planHoldingCheck('),html.indexOf('function updatePlanHoldingHint('));
+let guardStates=new Map(),guardBlocked=new Set(),guardReady=true;
+const guard=new Function('user','cloudReady','estimateCostLedger','LeiCorporateActions','corporateRecords','today','nameOf','fmt','return (ticker,direction,quantity)=>{const cloudDataReady=cloudReady();'+guardSource+';return planHoldingCheck(ticker,direction,quantity)}')({id:'a'},()=>guardReady,()=>({states:guardStates}),{blocked:()=>guardBlocked},[],()=> '2026-11-11',t=>t==='2330'?'台積電':'—',String);
+assert.match(guard('2330','賣出','').warning,/目前無持股/);
+guardStates.set('2330',{valid:true,quantity:10});
+assert.match(guard('2330','賣出',11).warning,/超過/);assert.equal(guard('2330','賣出',10).warning,'');assert.equal(guard('2330','買進',100).warning,'');
+assert.match(guard('2330','賣出',10).text,/台積電 2330｜目前持有 10 股/);
+assert.match(guard('006201','賣出',1).warning,/目前無持股/);
+guardBlocked.add('2330');assert.match(guard('2330','賣出',1).text,/股本異動待確認/);guardBlocked.clear();
+guardStates.set('2330',{valid:false,quantity:10});assert.match(guard('2330','賣出',1).warning,/待核對/);
+guardReady=false;assert.match(guard('2330','賣出',1).text,/尚未同步/);
+console.log('PASS: holding hints and sell warnings handle zero holdings, overselling, exact codes and unconfirmed inventory');
