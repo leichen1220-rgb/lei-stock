@@ -78,7 +78,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #overview .sale-details th,#overview .sale-details td{padding:7px 8px;font-size:12px}
 #overview .sale-details .muted{white-space:normal;max-width:360px;margin:8px 0}
 
-#plans th,#plans td,#plans summary,#plans .muted{font-size:12px}#plans th,#plans td{padding:7px 8px}#plans td button{padding:5px 7px;font-size:12px;margin:2px}#plans .plan-note{white-space:normal;min-width:120px;max-width:250px}#plans>.card{padding:14px}
+#plans th,#plans td,#plans summary,#plans .muted{font-size:12px}#plans th,#plans td{padding:7px 8px}#plans td button{padding:5px 7px;font-size:12px;margin:2px}#plans .plan-note{white-space:normal;min-width:120px;max-width:250px}#plans .plan-holding-low{display:block;margin-top:3px;font-size:13px;line-height:1.45;font-weight:600;color:#95dbab}#plans .plan-holding-low:first-child{margin-top:0}#plans>.card{padding:14px}
 .plan-price{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border-radius:5px}.plan-price.plan-target{background:#423457;color:#e8d9ff;font-weight:700}.plan-price.plan-highest{background:#4d4129;color:#ffe2a0;font-weight:700}.plan-highest-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f5cf79;flex-shrink:0}.plan-legend{margin:8px 0;line-height:1.6}.plan-legend>span{margin:2px 5px 2px 0}.plan-legend details{margin-top:5px}.plan-legend p{margin:6px 0;max-width:650px}
 .ticker-detail-link{padding:0!important;border:0;background:transparent;color:#c8b7ff;font:inherit!important;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.ticker-detail-link:hover{color:#e9deff}.ticker-detail-link:focus-visible{outline:2px solid #b49af7;outline-offset:3px}#tickerlist .ticker-lookup-item{display:inline-flex;align-items:center;gap:7px;margin:3px;padding:7px 10px;background:#272d41;border-radius:6px}
 #excelCostBody details>summary,#excelCostBody .muted{font-size:12px;line-height:1.5}
@@ -99,7 +99,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #stats .mv-notes{font-size:11px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}#stats .mv-notes>summary{font-size:11px;cursor:pointer}#stats .mv-notes>div{margin:4px 0}
 .new-entry-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.new-entry-row .new-entry{margin-bottom:0}#corporateRecordLink{padding:3px 0;font-size:12px;background:none;border:0;color:#bba9ff;text-decoration:underline;text-align:left}.corporate-record{padding:12px 0;border-top:1px solid #353b50;line-height:1.7;font-size:13px;overflow-wrap:anywhere}.corporate-record-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.corporate-record .actions{margin-top:8px}.corporate-record .actions button{font-size:12px;padding:6px 10px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.12.0 · 登錄成交與持有低價</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.12.1 · 待交易持有低價提示</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -505,8 +505,9 @@ function renderPlans(){
  $('planCloudStatus').textContent=!user?'請先登入':!cloudDataReady?'正在同步…':plansReady?'待交易計畫已同步。':'請先在 Supabase 執行 SQL 10，再重新整理，啟用待交易雲端保存。';
  $('planPriceStatus').textContent=marketPriceMessage;
  const query=$('planSearch').value.trim().toUpperCase(),rows=buildPlanRows(tradePlans,trades,displayedPrices(tradePlans.map(p=>p.ticker))).filter(p=>!query||(p.ticker+' '+(p.stock_name||nameOf(p.ticker))).toUpperCase().includes(query)).sort((a,b)=>String(a.ticker).localeCompare(String(b.ticker),'en'));
+ const positions=new Map(portfolioRows.map(r=>[r.ticker,r]));
  $('planCount').textContent=tradePlans.length+' 筆計畫'+(query?' · 符合 '+rows.length+' 筆':'');
- $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+'</td><td><button type="button" data-plan-execute="'+esc(p.id)+'"'+(!enabled?' disabled':'')+(planPriceSignals(p).target?' class="primary"':'')+'>登錄成交</button><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
+ $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+holdingLowBadge(positions.get(p.ticker))+'</td><td><button type="button" data-plan-execute="'+esc(p.id)+'"'+(!enabled?' disabled':'')+(planPriceSignals(p).target?' class="primary"':'')+'>登錄成交</button><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
 }
 function resetPlanForm(){editingPlan=null;$('planForm').reset();$('planEditor').open=false;$('planFormTitle').textContent='＋ 新增待交易';updatePlanHoldingHint();}
 function validatePlan(row){
@@ -919,15 +920,16 @@ function renderPortfolioRows(){
  $('portfolioCount').textContent=rows.length+' 檔';
  $('holdingbody').innerHTML=rows.length?rows.map(r=>{
   const expanded=positionExpanded.has(r.ticker),needReview=!r.cashValid||!r.costValid;
-  const main='<tr class="position-row"><td><div class="stock-title"><strong>'+tickerDetailLink(r.ticker)+'</strong><button type="button" data-position-expand="'+esc(r.ticker)+'" aria-expanded="'+expanded+'" aria-controls="position-'+esc(r.ticker)+'">'+(expanded?'收起':'展開')+'</button></div><span class="stock-name">'+esc(nameOf(r.ticker))+(r.blocked?' · 股本異動待確認，股數暫沿用':needReview?' · 待核對':'')+'</span></td><td class="num">'+fmt(r.quantity)+'</td><td class="num">'+(r.average===null?'—':fmt(r.average))+'</td><td class="num">'+(r.quote?fmt(r.quote.close_price)+'<span class="quote-date">'+esc(r.quote.price_date)+'</span>'+holdingLowBadge(r):'—')+'</td><td class="num">'+profitDisplay(r.unrealized)+'</td><td class="num">'+profitDisplay(r.realized)+'</td><td class="num">'+profitDisplay(r.income)+'</td><td class="num">'+profitDisplay(r.total)+'</td></tr>';
+  const main='<tr class="position-row"><td><div class="stock-title"><strong>'+tickerDetailLink(r.ticker)+'</strong><button type="button" data-position-expand="'+esc(r.ticker)+'" aria-expanded="'+expanded+'" aria-controls="position-'+esc(r.ticker)+'">'+(expanded?'收起':'展開')+'</button></div><span class="stock-name">'+esc(nameOf(r.ticker))+(r.blocked?' · 股本異動待確認，股數暫沿用':needReview?' · 待核對':'')+'</span></td><td class="num">'+fmt(r.quantity)+'</td><td class="num">'+(r.average===null?'—':fmt(r.average))+'</td><td class="num">'+(r.quote?fmt(r.quote.close_price)+'<span class="quote-date">'+esc(r.quote.price_date)+'</span>':'—')+'</td><td class="num">'+profitDisplay(r.unrealized)+'</td><td class="num">'+profitDisplay(r.realized)+'</td><td class="num">'+profitDisplay(r.income)+'</td><td class="num">'+profitDisplay(r.total)+'</td></tr>';
   return main+(expanded?'<tr class="position-detail-row" id="position-'+esc(r.ticker)+'" data-position="'+esc(r.ticker)+'"><td colspan="8">'+positionDetailHTML(r)+'</td></tr>':'');
  }).join(''):'<tr><td colspan="8" class="muted">沒有符合的股票，可切換「全部」或清除搜尋。</td></tr>';
 }
 function holdingLowBadge(r){
+ if(!r)return '';
  const pct=LeiWorkbench.belowHoldingBuyPrice(r);
  if(pct===null)return '';
  const label=pct<0.1?'不到 0.1%':pct.toLocaleString('zh-TW',{maximumFractionDigits:1})+'%';
- return '<small class="quote-date" style="color:#95dbab" title="依 FIFO 尚未賣出的批次買價（不含費用；股本異動後以換算價比較）">低於持有最低買價 '+label+'</small>';
+ return '<span class="plan-holding-low" title="依 FIFO 尚未賣出的批次買價（不含費用；股本異動後以換算價比較）">低於持有最低買價 '+label+'</span>';
 }
 function renderOverview(){
  $('priceStatus').textContent=marketPriceMessage;$('overviewPriceStatus').textContent=marketPriceMessage;
