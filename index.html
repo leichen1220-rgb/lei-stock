@@ -99,7 +99,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #stats .mv-notes{font-size:11px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}#stats .mv-notes>summary{font-size:11px;cursor:pointer}#stats .mv-notes>div{margin:4px 0}
 .new-entry-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.new-entry-row .new-entry{margin-bottom:0}#corporateRecordLink{padding:3px 0;font-size:12px;background:none;border:0;color:#bba9ff;text-decoration:underline;text-align:left}.corporate-record{padding:12px 0;border-top:1px solid #353b50;line-height:1.7;font-size:13px;overflow-wrap:anywhere}.corporate-record-title{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.corporate-record .actions{margin-top:8px}.corporate-record .actions button{font-size:12px;padding:6px 10px}
 </style></head><body>
-<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.3 · 待交易報價修正</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
+<header><div><strong>Lei · 股票紀錄</strong><div class="muted">V1.11.4 · 待交易持股提醒</div></div><div class="actions"><span id="who" class="muted">未登入</span><button id="refreshApp" type="button" title="重新載入最新網頁版本與雲端資料">重新整理</button><button id="logout" class="hidden">登出</button></div></header>
 <div id="message" role="status"></div>
 <main>
 <section id="authLoading" class="card hidden"><h2>正在恢復登入狀態…</h2></section>
@@ -159,7 +159,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 <div class="grid" id="stats"></div><div class="portfolio-toolbar actions"><label>顯示 <select id="portfolioScope"><option value="held">持有中</option><option value="closed">已出清</option><option value="all">全部</option></select></label><input id="portfolioSearch" type="search" placeholder="搜尋股票代號／名稱" aria-label="搜尋持股總覽"><span id="portfolioCount" class="muted"></span></div>
 <div class="scroll portfolio-scroll"><table class="portfolio-table"><thead><tr><th>股票</th><th class="num">現有股數</th><th class="num">持股均價</th><th class="num">最近收盤</th><th class="num">未實現</th><th class="num">已實現買賣</th><th class="num">已入帳淨收入</th><th class="num">累計總損益</th></tr></thead><tbody id="holdingbody" class="position-body"></tbody></table></div><div id="ledgerAudit" class="muted"></div>
 <details class="price-info"><summary>成本與試算說明</summary><p class="muted">持股均價＝剩餘移動平均成本÷現有股數，買入費用已納入。未實現尚未扣未來賣出費稅；已實現買賣已扣記錄費用。總損益＝已實現買賣＋未實現＋已入帳淨收入＋股本異動損益。現金減資退本金調整成本、不算股息；已確認待收退款按應收額納入，另列實際入帳狀態。分割／減資後的每股成本已重算，原買進流水不變。待入帳收入不計入總損益或回本價，故可能與舊版含待入帳的合計不同。回本價是依設定費率的預估，不會送出交易。</p></details><details class="price-info"><summary>報價更新說明</summary><p class="muted">每日自動抓取證交所原始 CSV／OpenAPI，依資料日期選較新來源；上櫃使用櫃買資料。按鈕重新載入已發布報價。官方資料尚未換日或休市時，沿用最近交易日。個別缺價保留原日期；非盤中即時行情。</p><div id="priceStatus" class="muted"></div></details><details class="price-info"><summary>公開持股同步（僅代號、名稱、股數）</summary><p id="portfolioPublishStatus" class="muted" aria-live="polite">等待登入後同步；首次啟用需部署後端發布函式。</p><div class="actions"><button id="publishPortfolio" type="button">重新發布持股</button><a id="publicPortfolioLink" class="hidden" href="./portfolio.json" target="_blank" rel="noopener">公開 JSON</a></div><p class="muted">交易／名稱儲存並同步成功後自動發布。靜態網址可能有數分鐘快取；重新讀取可在網址加 ?v=當下時間。</p><details><summary>首次設定資訊</summary><button id="copyPortfolioOwner" type="button">複製後端帳號限制設定</button><p class="muted">僅供你貼入 Supabase 設定；不會加入公開檔案。</p></details></details></div></section>
-<section id="plans" class="page hidden"><div class="card"><div class="actions"><h2>待交易</h2><button id="planRefresh" type="button">更新收盤價</button></div><p class="muted">目標價是交易計畫。持股均價採剩餘持股的買進成本（含買入費用），不扣股息、借券或賣出收入；歷史最高買進價只看已成交買進。</p><p id="planCloudStatus" class="muted" aria-live="polite"></p><p id="planPriceStatus" class="muted"></p><details class="card"><summary>匯入原 Excel 的等待資料</summary><p class="muted">選擇 stock-waiting-plans-19.json，檢查後再匯入。原檔未填買賣方向與股數的資料會保留空白；重複匯入保留已有計畫。</p><input id="planImportFile" type="file" accept=".json,application/json"><button id="planImportButton" type="button" disabled>匯入等待資料</button><p id="planImportStatus" class="muted" aria-live="polite">尚未選擇檔案</p></details><details id="planEditor" class="card"><summary id="planFormTitle">＋ 新增待交易</summary><form id="planForm" class="grid"><label class="field">代號<input name="ticker" required maxlength="16"></label><label class="field">名稱<input name="stock_name"></label><label class="field">方向<select name="direction"><option>未指定</option><option>買進</option><option>賣出</option></select></label><label class="field">預計股數（可留空）<input name="quantity" type="number" min="0.000001" step="any"></label><label class="field">目標價<input name="target_price" type="number" min="0.000001" step="any" required></label><label class="field">備註<input name="note"></label><div class="actions"><button id="planSave" type="submit">儲存計畫</button><button id="planCancel" type="button">取消</button></div></form></details><div class="actions"><input id="planSearch" type="search" placeholder="搜尋代號／名稱" aria-label="搜尋待交易"></div><p id="planCount" class="muted"></p><div class="plan-legend muted"><span class="plan-price plan-target">紫底：目標價達標</span> <span class="plan-price plan-highest">金底：歷史最高買進價達標</span> <span class="plan-price plan-target">紫底＋金點<span class="plan-highest-dot" aria-hidden="true"></span>：兩者都達標</span><details><summary>上色規則</summary><p>賣出：最近收盤價 ≥ 目標價／歷史最高買進價，分別判定達標。買進：最近收盤價 ≤ 目標價／歷史最高買進價，分別判定達標。等於也算；方向未指定或缺少對應價格時不標色。比較使用各檔顯示日期的收盤價。</p></details></div><div class="scroll"><table><thead><tr><th>代號／名稱</th><th>方向</th><th class="num">目標價</th><th class="num">最近收盤價</th><th>報價日期</th><th class="num">目前持股均價</th><th class="num">歷史最高買進價</th><th class="num">預計股數</th><th>備註</th><th></th></tr></thead><tbody id="planRows"></tbody></table></div></div></section>
+<section id="plans" class="page hidden"><div class="card"><div class="actions"><h2>待交易</h2><button id="planRefresh" type="button">更新收盤價</button></div><p class="muted">目標價是交易計畫。持股均價採剩餘持股的買進成本（含買入費用），不扣股息、借券或賣出收入；歷史最高買進價只看已成交買進。</p><p id="planCloudStatus" class="muted" aria-live="polite"></p><p id="planPriceStatus" class="muted"></p><details class="card"><summary>匯入原 Excel 的等待資料</summary><p class="muted">選擇 stock-waiting-plans-19.json，檢查後再匯入。原檔未填買賣方向與股數的資料會保留空白；重複匯入保留已有計畫。</p><input id="planImportFile" type="file" accept=".json,application/json"><button id="planImportButton" type="button" disabled>匯入等待資料</button><p id="planImportStatus" class="muted" aria-live="polite">尚未選擇檔案</p></details><details id="planEditor" class="card"><summary id="planFormTitle">＋ 新增待交易</summary><form id="planForm" class="grid"><label class="field">代號<input name="ticker" required maxlength="16" aria-describedby="planHoldingHint"><small id="planHoldingHint" class="muted" role="status" aria-live="polite">輸入代號後顯示目前持股</small></label><label class="field">名稱<input name="stock_name"></label><label class="field">方向<select name="direction"><option>未指定</option><option>買進</option><option>賣出</option></select></label><label class="field">預計股數（可留空）<input name="quantity" type="number" min="0.000001" step="any"></label><label class="field">目標價<input name="target_price" type="number" min="0.000001" step="any" required></label><label class="field">備註<input name="note"></label><div class="actions"><button id="planSave" type="submit">儲存計畫</button><button id="planCancel" type="button">取消</button></div></form></details><div class="actions"><input id="planSearch" type="search" placeholder="搜尋代號／名稱" aria-label="搜尋待交易"></div><p id="planCount" class="muted"></p><div class="plan-legend muted"><span class="plan-price plan-target">紫底：目標價達標</span> <span class="plan-price plan-highest">金底：歷史最高買進價達標</span> <span class="plan-price plan-target">紫底＋金點<span class="plan-highest-dot" aria-hidden="true"></span>：兩者都達標</span><details><summary>上色規則</summary><p>賣出：最近收盤價 ≥ 目標價／歷史最高買進價，分別判定達標。買進：最近收盤價 ≤ 目標價／歷史最高買進價，分別判定達標。等於也算；方向未指定或缺少對應價格時不標色。比較使用各檔顯示日期的收盤價。</p></details></div><div class="scroll"><table><thead><tr><th>代號／名稱</th><th>方向</th><th class="num">目標價</th><th class="num">最近收盤價</th><th>報價日期</th><th class="num">目前持股均價</th><th class="num">歷史最高買進價</th><th class="num">預計股數</th><th>備註</th><th></th></tr></thead><tbody id="planRows"></tbody></table></div></div></section>
 <section id="dividends" class="page hidden"><div class="card"><h2>股息入帳待確認</h2><p class="muted">已填匯費（含 0 元）即視為已確認入帳。所有待確認的股息與借券收入依入帳日分組；預計入帳日隔天開始列為逾期待確認。</p><div id="reminders"></div></div></section>
 <section id="other" class="page hidden">
 <div class="other-switch"><label for="otherPageSelect">其他資料</label><select id="otherPageSelect" aria-label="切換其他資料頁面" aria-controls="otherCodes otherBackup otherCalculator otherMemo"><option value="codes">代碼</option><option value="backup">備份</option><option value="calculator">試算</option><option value="memo">備忘</option></select></div>
@@ -480,7 +480,25 @@ function planPriceHTML(plan){
  const cls=hit.target?' plan-target':hit.highest?' plan-highest':'';
  return '<span class="plan-price'+cls+'" title="'+label+'">'+fmt(plan.close)+(hit.target&&hit.highest?'<span class="plan-highest-dot" role="img" aria-label="歷史最高買進價也達標"></span>':'')+'</span>';
 }
+function planHoldingCheck(ticker,direction,quantity){
+ ticker=String(ticker||'').trim().toUpperCase();
+ if(!ticker)return {text:'輸入代號後顯示目前持股',warning:''};
+ if(!/^[0-9A-Z]{4,16}$/.test(ticker))return {text:'請輸入完整股票代號',warning:''};
+ if(!user||!cloudDataReady)return {text:'持股資料尚未同步，暫時無法核對',warning:'持股資料尚未同步，暫時無法核對'};
+ const state=estimateCostLedger().states.get(ticker),blocked=LeiCorporateActions.blocked(corporateRecords,today()).has(ticker);
+ const name=nameOf(ticker),prefix=(name==='—'?ticker:name+' '+ticker)+'｜';
+ if(blocked||state&&(!state.valid||!Number.isFinite(state.quantity)||state.quantity<0))return {text:prefix+'目前股數待核對'+(blocked?'（股本異動待確認）':''),warning:'目前股數待核對，請先確認交易或股本異動紀錄'};
+ const held=state?.quantity||0;
+ const warning=direction==='賣出'?(held<=0?'目前無持股，請確認是否選錯方向或尚未登錄買進':Number(quantity)>held+0.000001?'預計賣出 '+fmt(quantity)+' 股，超過目前持有的 '+fmt(held)+' 股':''):'';
+ return {text:prefix+(held>0?'目前持有 '+fmt(held)+' 股':'目前無持股')+(warning?'。'+warning:''),warning};
+}
+function updatePlanHoldingHint(){
+ const f=$('planForm').elements,result=planHoldingCheck(f.ticker.value,f.direction.value,f.quantity.value);
+ $('planHoldingHint').textContent=result.text;$('planHoldingHint').style.color=result.warning?'#f3be70':'';
+ return result;
+}
 function renderPlans(){
+ updatePlanHoldingHint();
  const enabled=!!user&&cloudDataReady&&plansReady&&!planBusy;
  for(const el of $('planForm').elements)el.disabled=!enabled;
  $('planImportButton').disabled=!enabled||!pendingPlanImport?.rows.length;
@@ -490,7 +508,7 @@ function renderPlans(){
  $('planCount').textContent=tradePlans.length+' 筆計畫'+(query?' · 符合 '+rows.length+' 筆':'');
  $('planRows').innerHTML=rows.length?rows.map(p=>'<tr><td><strong>'+tickerDetailLink(p.ticker)+'</strong><br><span class="muted">'+esc(p.stock_name||nameOf(p.ticker))+'</span></td><td>'+esc(p.direction)+'</td><td class="num">'+fmt(p.target_price)+'</td><td class="num">'+planPriceHTML(p)+'</td><td>'+esc(p.priceDate)+'</td><td class="num">'+(p.average===null?'—':fmt(p.average))+'</td><td class="num">'+(p.highest===null?'—':fmt(p.highest))+'</td><td class="num">'+(p.quantity==null?'—':fmt(p.quantity))+'</td><td class="plan-note">'+esc(p.note||'')+'</td><td><button data-plan-edit="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>編輯</button><button data-plan-delete="'+esc(p.id)+'"'+(!enabled?' disabled':'')+'>刪除</button></td></tr>').join(''):'<tr><td colspan="10" class="muted">'+(query?'沒有符合的計畫。':'目前沒有待交易計畫，可匯入原 Excel 資料或自行新增。')+'</td></tr>';
 }
-function resetPlanForm(){editingPlan=null;$('planForm').reset();$('planEditor').open=false;$('planFormTitle').textContent='＋ 新增待交易';}
+function resetPlanForm(){editingPlan=null;$('planForm').reset();$('planEditor').open=false;$('planFormTitle').textContent='＋ 新增待交易';updatePlanHoldingHint();}
 function validatePlan(row){
  const ticker=String(row.ticker||'').trim().toUpperCase(),price=Number(row.target_price),quantity=row.quantity==null||row.quantity===''?null:Number(row.quantity),direction=row.direction||'未指定';
  if(!/^[0-9A-Z]{4,16}$/.test(ticker)||!Number.isFinite(price)||price<=0||quantity!==null&&(!Number.isFinite(quantity)||quantity<=0)||!['未指定','買進','賣出'].includes(direction))throw Error('代號、方向、目標價或股數無效');
@@ -503,19 +521,22 @@ function planWaitingImport(payload,existing){
  for(const row of payload.rows){const clean=validatePlan(row),key=String(row.source_key||'');if(!/^excel-wait:[0-9]+:[0-9A-Z]{4,16}$/.test(key)||seen.has(key))throw Error('匯入來源識別無效或重複');seen.add(key);if(known.has(key)){skipped++;continue;}rows.push({...clean,source_key:key});}
  return {rows,skipped};
 }
+$('planForm').addEventListener('input',updatePlanHoldingHint);
+$('planForm').addEventListener('change',updatePlanHoldingHint);
 $('planSearch').oninput=renderPlans;
 $('planCancel').onclick=()=>{if(!planBusy)resetPlanForm();};
 $('planRefresh').onclick=async()=>{const button=$('planRefresh');button.disabled=true;try{await readOfficialPrices();renderOverview();renderPlans();}catch(e){msg(e.message,true);}finally{button.disabled=false;}};
 $('planRows').onclick=async e=>{
  const button=e.target.closest('button');if(!button||planBusy||!plansReady||!cloudDataReady||!user)return;
  const id=button.dataset.planEdit||button.dataset.planDelete,p=tradePlans.find(p=>p.id===id),account=user.id;if(!p)return;
- if(button.dataset.planEdit){editingPlan={id,account};for(const k of ['ticker','stock_name','direction','quantity','target_price','note'])$('planForm').elements[k].value=p[k]??'';$('planEditor').open=true;$('planFormTitle').textContent='編輯待交易 · '+p.ticker;$('planEditor').scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(button.dataset.planEdit){editingPlan={id,account};for(const k of ['ticker','stock_name','direction','quantity','target_price','note'])$('planForm').elements[k].value=p[k]??'';$('planEditor').open=true;$('planFormTitle').textContent='編輯待交易 · '+p.ticker;updatePlanHoldingHint();$('planEditor').scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(!confirm('刪除 '+p.ticker+' 的這筆待交易計畫？'))return;
  planBusy=true;renderPlans();try{await call('stock_trade_plans',q=>q.delete().eq('owner_id',account).eq('id',id));await readTradePlans(account);if(user?.id===account&&editingPlan?.id===id)resetPlanForm();}catch(e){msg('刪除失敗：'+e.message,true);}finally{planBusy=false;renderPlans();}
 };
 $('planForm').onsubmit=async e=>{
  e.preventDefault();if(planBusy||!plansReady||!cloudDataReady||!user)return;const account=user.id;if(editingPlan&&editingPlan.account!==account)return msg('帳號已變更，請重新開啟編輯',true);
  let clean;try{clean=validatePlan(Object.fromEntries(new FormData(e.target)));}catch(e){return msg(e.message,true);}
+ const check=updatePlanHoldingHint();if(clean.direction==='賣出'&&check.warning&&!confirm(check.warning+'。\n仍要儲存這筆待交易計畫？（不會新增實際交易）'))return;
  const id=editingPlan?.id;planBusy=true;renderPlans();
  try{await call('stock_trade_plans',q=>id?q.update(clean).eq('owner_id',account).eq('id',id):q.insert({...clean,owner_id:account}));await readTradePlans(account);if(user?.id===account){resetPlanForm();msg('待交易計畫已儲存');}}catch(e){msg('儲存失敗：'+e.message,true);}finally{planBusy=false;renderPlans();}
 };
