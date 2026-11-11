@@ -7,7 +7,7 @@ function fifoLedger(transactions,cashAmount,actions=[],asOf){
  const states=new Map();
  const ordered=actions.length?ca.timeline(transactions,actions,asOf).map((t,i)=>({t,i})):transactions.map((t,i)=>({t,i})).sort((a,b)=>String(a.t.trade_date||'').localeCompare(String(b.t.trade_date||''))||(Number(a.t.sequence_no)||0)-(Number(b.t.sequence_no)||0)||a.i-b.i);
  for(const {t,i} of ordered){
-  if(t.action){const st=states.get(t.ticker)||{quantity:0,lots:[],valid:true};try{if(!st.valid)throw Error('前序交易待核對');ca.adjustLots(st,t.action);}catch(e){st.valid=false;}states.set(t.ticker,st);continue;}
+  if(t.action){const st=states.get(t.ticker)||{quantity:0,lots:[],valid:true};try{if(!st.valid)throw Error('前序交易待核對');ca.adjustLots(st,t.action);if(t.action.kind!=='subscription'){const a=t.action,ratio=Number(a.before_quantity)/(Number(a.after_quantity)+Number(a.fractional_quantity)),refund=Number(a.principal_cash)/Number(a.before_quantity);for(const l of st.lots)if(l.buyPrice!=null)l.buyPrice=(l.buyPrice-refund)*ratio;}}catch(e){st.valid=false;}states.set(t.ticker,st);continue;}
   if(!['現股','股票股利'].includes(t.transaction_type))continue;
   const st=states.get(t.ticker)||{quantity:0,lots:[],valid:true},q=Number(t.quantity);
   if(!present(t.quantity)||!Number.isFinite(q)||q===0){st.valid=false;states.set(t.ticker,st);continue;}
@@ -16,7 +16,7 @@ function fifoLedger(transactions,cashAmount,actions=[],asOf){
    if(q<=0||st.quantity<=0||Number(t.trade_fees||0)!==0){st.valid=false;}else{const ratio=(st.quantity+q)/st.quantity;st.lots.forEach(l=>l.quantity*=ratio);st.quantity+=q;}
   }else if(q>0){
    const cash=cashAmount(t);if(!cash.valid||cash.amount<0)st.valid=false;
-   else{st.lots.push({id:t.id||String(i),date:t.trade_date,quantity:q,cost:cash.amount,estimated:cash.estimated});st.quantity+=q;}
+   else{st.lots.push({id:t.id||String(i),date:t.trade_date,quantity:q,cost:cash.amount,buyPrice:present(t.price)&&Number(t.price)>0&&Number.isFinite(Number(t.price))?Number(t.price):null,estimated:cash.estimated});st.quantity+=q;}
   }else if(-q>st.quantity+1e-6){st.valid=false;}
   else{
    let left=-q;
@@ -57,6 +57,14 @@ function buildRows(transactions,quotes,costStates,cashStates,cashAmount,actions=
    corporateReceivable:cash?.corporateReceivable||0,otherRealized:cost?.otherRealized||0,actions:actions.filter(a=>a.ticker===ticker),blocked:blocked.has(ticker),netInvestment,total:market!==null&&netInvestment!==null?market-netInvestment:null,costValid,cashValid,cashState:cash,costState:cost,fifo:fifo.get(ticker)};
   return row;
  });
+}
+function belowHoldingBuyPrice(row){
+ const fifo=row.fifo,close=Number(row.quote?.close_price);
+ if(row.blocked||!(row.quantity>0)||!fifo?.valid||Math.abs(fifo.quantity-row.quantity)>1e-6||!Number.isFinite(close)||close<=0)return null;
+ const buys=fifo.lots.filter(l=>!String(l.id).startsWith('action:'));
+ if(!buys.length||buys.some(l=>!Number.isFinite(l.buyPrice)||l.buyPrice<=0))return null;
+ const minimum=Math.min(...buys.map(l=>l.buyPrice));
+ return minimum-close>1e-9?100*(minimum-close)/minimum:null;
 }
 function inferKind(ticker){return /^00[0-9]+B$/i.test(ticker)?'bond':/^00/.test(ticker)?'etf':'stock';}
 function tick(price,kind){return kind==='etf'||kind==='bond'?(price<50?0.01:0.05):price<10?0.01:price<50?0.05:price<100?0.1:price<500?0.5:price<1000?1:5;}
@@ -119,7 +127,7 @@ function simulate(row,quantity,price,fees,kind){
   everyLotBreak:highest===null?null:breakEven(highest*quantity+0.01,quantity,fees,kind),
   highestUnit:highest};
 }
-const api={fifoLedger,buildRows,inferKind,tick,ceilPrice,proceeds,purchase,affordablePurchase,breakEven,simulate};
+const api={fifoLedger,buildRows,belowHoldingBuyPrice,inferKind,tick,ceilPrice,proceeds,purchase,affordablePurchase,breakEven,simulate};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LeiWorkbench=api;
 })(typeof window==='undefined'?globalThis:window);
 
